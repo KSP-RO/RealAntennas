@@ -72,7 +72,7 @@ namespace RealAntennas.Network
             }
         }
 
-        internal void OnUpdateVisible(KSP.UI.Screens.Mapview.MapNode mapNode, KSP.UI.Screens.Mapview.MapNode.IconData iconData)
+        public void OnUpdateVisible(KSP.UI.Screens.Mapview.MapNode mapNode, KSP.UI.Screens.Mapview.MapNode.IconData iconData)
         {
             Vector3d worldPos = ScaledSpace.LocalToScaledSpace(Comm.precisePosition);
             iconData.visible &= MapView.MapCamera.transform.InverseTransformPoint(worldPos).z >= 0 && !IsOccludedToCamera(Comm.precisePosition, body);

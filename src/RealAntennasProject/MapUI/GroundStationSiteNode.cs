@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace RealAntennas.MapUI
 {
-    class GroundStationSiteNode : ISiteNode
+    public class GroundStationSiteNode : ISiteNode
     {
         RACommNode node;
 

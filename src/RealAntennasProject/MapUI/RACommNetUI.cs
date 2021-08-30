@@ -56,6 +56,15 @@ namespace RealAntennas.MapUI
             RATelemetryUpdate.Install();
         }
 
+        // If either one of these lists is nonempty, the links that are shown
+        // are exactly those in OverrideShownLinks, and the beamwidth cones are
+        // exactly those of the nodes in OverrideShownCones, regardless of the
+        // UI mode.
+        // The list is used and cleared by this class at the BetterLateThanNever
+        // timing of LateUpdate.
+        public List<CommLink> OverrideShownLinks { get; private set; } = new List<CommLink>();
+        public List<RACommNode> OverrideShownCones { get; private set; } = new List<RACommNode>();
+
         private void GatherLinkLines(List<CommLink> linkList)
         {
             var settings = RACommNetScenario.MapUISettings;
@@ -255,6 +264,7 @@ namespace RealAntennas.MapUI
             public Vector3d Midpoint => (end1 + end2) / 2;
         }
 
+        // Runs in LateUpdate at BetterLateThanNever (Timing5, 8008).
         protected override void UpdateDisplay()
         {
             //base.UpdateDisplay();
@@ -274,6 +284,17 @@ namespace RealAntennas.MapUI
 
             if (RACommNetScenario.RACN is RACommNetwork commNet)
             {
+                if (OverrideShownLinks.Count > 0 || OverrideShownCones.Count > 0)
+                {
+                    GatherLinkLines(OverrideShownLinks);
+                    foreach (RACommNode node in OverrideShownCones)
+                    {
+                        GatherAntennaCones(node);
+                    }
+                    OverrideShownLinks.Clear();
+                    OverrideShownCones.Clear();
+                    return;
+                }
                 if (CommNetUI.Mode == CommNetUI.DisplayMode.Network)
                 {
                     foreach (RACommNode node in commNet.Nodes)

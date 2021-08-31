@@ -54,7 +54,7 @@ namespace RealAntennas.Precompute
         public Encoder BestMatching(in Encoder other) => TechLevel > other.TechLevel ? other : this;
     }
 
-    internal class Precompute
+    public class Precompute
     {
         public readonly Dictionary<RealAntenna, int> allAntennas = new Dictionary<RealAntenna, int>();
         public readonly Dictionary<int, RealAntenna> allAntennasReverse = new Dictionary<int, RealAntenna>();

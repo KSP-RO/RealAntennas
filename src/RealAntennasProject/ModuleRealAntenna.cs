@@ -18,8 +18,10 @@ namespace RealAntennas
         public float Gain;          // Physical directionality, measured in dBi
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Transmit Power (dBm)", guiUnits = " dBm", guiFormat = "F1", groupName = PAWGroup),
-        UI_FloatRange(maxValue = 60f, minValue = 0f, stepIncrement = 1f, scene = UI_Scene.Editor)]
-        public float TxPower = 30f;       // Transmit Power in dBm (milliwatts)
+        UI_FloatRange(maxValue = 60, minValue = 0, stepIncrement = 1, scene = UI_Scene.Editor)]
+        public float TxPower = 30;       // Transmit Power in dBm (milliwatts)
+
+        [KSPField] protected float MaxTxPower = 60;    // Per-part max setting for TxPower
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Tech Level", guiFormat = "N0", groupName = PAWGroup),
         UI_FloatRange(minValue = 0f, stepIncrement = 1f, scene = UI_Scene.Editor)]
@@ -79,8 +81,9 @@ namespace RealAntennas
         public void AntennaPlanningGUI()
         {
             plannerGUI = new GameObject($"{RAAntenna.Name}-Planning").AddComponent<PlannerGUI>();
-            plannerGUI.peerAntenna = RAAntenna;
-            plannerGUI.fixedAntenna = RAAntenna;
+            plannerGUI.primaryAntenna = RAAntenna;
+            var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
+            plannerGUI.fixedAntenna = plannerGUI.GetBestMatchingGroundStation(RAAntenna, homes) is RealAntenna bestDSNAntenna ? bestDSNAntenna : RAAntenna;
             plannerGUI.parentPartModule = this;
         }
 
@@ -102,7 +105,6 @@ namespace RealAntennas
             base.OnLoad(node);
             if (node.name != "CURRENTUPGRADE")
                 Configure(node);
-            Debug.Log($"{ModTag} OnLoad from {node.name}: {this}");
         }
 
         public override void OnSave(ConfigNode node)
@@ -125,6 +127,7 @@ namespace RealAntennas
             base.OnStart(state);
             SetupBaseFields();
             Fields[nameof(_enabled)].uiControlEditor.onFieldChanged = OnAntennaEnableChange;
+            (Fields[nameof(TxPower)].uiControlEditor as UI_FloatRange).maxValue = MaxTxPower;
 
             if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER) maxTechLevel = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel;
             if (Fields[nameof(TechLevel)].uiControlEditor is UI_FloatRange fr) 

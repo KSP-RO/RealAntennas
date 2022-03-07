@@ -9,6 +9,7 @@ namespace RealAntennas.Network
     {
         protected static readonly string ModTag = "[RealAntennasCommNetHome] ";
         protected ConfigNode config = null;
+        protected bool isHome = true;
         private readonly double DriftTolerance = 10000.0;
         public string icon = "radio-antenna";
         public RACommNode Comm => comm as RACommNode;
@@ -31,6 +32,11 @@ namespace RealAntennas.Network
             lat = double.Parse(node.GetValue("lat"));
             lon = double.Parse(node.GetValue("lon"));
             alt = double.Parse(node.GetValue("alt"));
+            string home = null;
+            if (node.TryGetValue("isHome", ref home))
+            {
+                isHome = bool.Parse(home);
+            }
             node.TryGetValue("icon", ref icon);
             SetTransformFromLatLonAlt(lat, lon, alt, body);
         }
@@ -41,7 +47,7 @@ namespace RealAntennas.Network
                 comm = new RACommNode(nodeTransform)
                 {
                     OnNetworkPreUpdate = new Action(OnNetworkPreUpdate),
-                    isHome = true,
+                    isHome = isHome,
                     isControlSource = true,
                     isControlSourceMultiHop = true
                 };

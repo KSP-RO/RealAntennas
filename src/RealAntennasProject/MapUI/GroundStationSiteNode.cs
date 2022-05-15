@@ -5,7 +5,7 @@ namespace RealAntennas.MapUI
 {
     public class GroundStationSiteNode : ISiteNode
     {
-        RACommNode node;
+        public readonly RACommNode node;
 
         public GroundStationSiteNode(RACommNode node)
         {

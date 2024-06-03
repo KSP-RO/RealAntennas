@@ -46,7 +46,7 @@ jobs:
           $KSP_DLL_PATH="KSP_Assemblies"
           echo "::set-output name=ksp-dll-path::${KSP_DLL_PATH}"
           mkdir -p "${KSP_DLL_PATH}"
-          7z.exe x "-p${KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"
+          7z.exe x "-p${env:KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"
           rm 'KSP_Assemblies.zip'
 
       - name: Build mod solution

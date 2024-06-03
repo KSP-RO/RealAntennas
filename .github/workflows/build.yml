@@ -43,7 +43,7 @@ jobs:
           KSP_ZIP_PASSWORD: ${{ secrets.KSP_ZIP_PASSWORD }}
         run: |
           Invoke-WebRequest https://ksp-ro.s3-us-west-2.amazonaws.com/KSPAssemblies-1.12.zip -OutFile KSP_Assemblies.zip
-          $KSP_DLL_PATH="{env:GITHUB_WORKSPACE}/KSP_Assemblies"
+          $KSP_DLL_PATH="${env:GITHUB_WORKSPACE}/KSP_Assemblies"
           echo "::set-output name=ksp-dll-path::${KSP_DLL_PATH}"
           mkdir -p "${KSP_DLL_PATH}"
           7z.exe x "-p${env:KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"

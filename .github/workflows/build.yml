@@ -63,7 +63,7 @@ jobs:
           echo "Release dir: ${RELEASE_DIR}"
           mkdir "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp "${env:GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
+          cp "${env:GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}" -Recurse
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1

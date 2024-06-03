@@ -54,7 +54,7 @@ jobs:
 
       - name: Build mod solution
         run: |
-          msbuild /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}" ${GITHUB_WORKSPACE}/src/RealAntennasProject.sln
+          msbuild /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}" ${env:GITHUB_WORKSPACE}/src/RealAntennasProject.sln
 
       #- name: Remove excess DLLs
       #  uses: KSP-RO/BuildTools/remove-excess-dlls@master
@@ -69,16 +69,16 @@ jobs:
       - name: Build metadata
         shell: bash
         run: |
-          python ${GITHUB_WORKSPACE}/makeMeta.py 2.0.0.0
+          python ${env:GITHUB_WORKSPACE}/makeMeta.py 2.0.0.0
 
       - name: Assemble release
         id: assemble-release
         run: |
-          RELEASE_DIR="${RUNNER_TEMP}/release"
+          RELEASE_DIR="${env:RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
           mkdir "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp "${GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
+          cp "${env:GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1

@@ -49,6 +49,9 @@ jobs:
           7z.exe x "-p${env:KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"
           rm 'KSP_Assemblies.zip'
 
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
       - name: Build mod solution
         run: |
           msbuild /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}" ${GITHUB_WORKSPACE}/src/RealAntennasProject.sln

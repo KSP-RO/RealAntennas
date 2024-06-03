@@ -28,7 +28,7 @@ jobs:
       - name: Validate config files
         uses: KSP-CKAN/KSPMMCfgParser@master
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: [check-secret]
     if: needs.check-secret.outputs.has-password == 'true'
     steps:
@@ -38,20 +38,19 @@ jobs:
           fetch-depth: 100
       - name: Download required assemblies
         id: download-assemblies
-        shell: bash
+        shell: pwsh
         env:
           KSP_ZIP_PASSWORD: ${{ secrets.KSP_ZIP_PASSWORD }}
         run: |
-          curl https://ksp-ro.s3-us-west-2.amazonaws.com/KSPAssemblies-1.12.zip --output /tmp/bins.zip
-          KSP_DLL_PATH="/opt/ksp/assembly"
+          Invoke-WebRequest https://ksp-ro.s3-us-west-2.amazonaws.com/KSPAssemblies-1.12.zip -OutFile KSP_Assemblies.zip
+          $KSP_DLL_PATH="KSP_Assemblies"
           echo "::set-output name=ksp-dll-path::${KSP_DLL_PATH}"
           mkdir -p "${KSP_DLL_PATH}"
-          unzip -P "${KSP_ZIP_PASSWORD}" '/tmp/bins.zip' -d "${KSP_DLL_PATH}"
+          7z.exe x "-p${KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"
           rm '/tmp/bins.zip'
 
       - name: Build mod solution
         run: |
-          rm -f ${GITHUB_WORKSPACE}/GameData/RealAntennas/Plugins/*.dll
           msbuild /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}" ${GITHUB_WORKSPACE}/src/RealAntennasProject.sln
 
       #- name: Remove excess DLLs
@@ -74,9 +73,9 @@ jobs:
         run: |
           RELEASE_DIR="${RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
-          mkdir -v "${RELEASE_DIR}"
+          mkdir "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp -v -R "${GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
+          cp "${GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1

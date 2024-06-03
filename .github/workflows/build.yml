@@ -59,7 +59,7 @@ jobs:
       - name: Assemble release
         id: assemble-release
         run: |
-          RELEASE_DIR="${env:RUNNER_TEMP}/release"
+          $RELEASE_DIR="${env:RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
           mkdir "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"

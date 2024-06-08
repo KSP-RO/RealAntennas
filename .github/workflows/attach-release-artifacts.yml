@@ -13,7 +13,7 @@ jobs:
         id: download-artifact
         uses: dawidd6/action-download-artifact@v5
         with:
-          commit: ${{ vars.GITHUB_SHA }}
+          commit: ${{ env.GITHUB_SHA }}
           workflow: build.yml
           name: RealAntennas
           skip_unpack: true

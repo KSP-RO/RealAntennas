@@ -18,7 +18,7 @@ jobs:
         id: download-artifact
         uses: dawidd6/action-download-artifact@v5
         with:
-          commit: ${{GITHUB_SHA}}
+          commit: ${{ vars.GITHUB_SHA }}
           name: RealAntennas
 
       - name: Upload package to release

@@ -7,6 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RealAntennas", "RealAntenna
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub workflows", "GitHub workflows", "{6EB015BB-8C8E-4C5E-AB48-AA22A076DAA1}"
 	ProjectSection(SolutionItems) = preProject
+		attach-release-artifacts.yml = attach-release-artifacts.yml
 		..\.github\workflows\build.yml = ..\.github\workflows\build.yml
 	EndProjectSection
 EndProject

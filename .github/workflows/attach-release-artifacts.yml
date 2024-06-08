@@ -16,6 +16,7 @@ jobs:
           commit: ${{ vars.GITHUB_SHA }}
           workflow: build.yml
           name: RealAntennas
+          skip_unpack: true
 
       - name: Upload package to release
         uses: actions/upload-release-asset@v1

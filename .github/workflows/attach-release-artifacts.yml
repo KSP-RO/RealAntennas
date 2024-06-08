@@ -25,5 +25,5 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./RealAntennas.zip
-          asset_name: RealSolarSystem_${{ github.event.release.tag_name }}.zip
+          asset_name: RealAntennas-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip

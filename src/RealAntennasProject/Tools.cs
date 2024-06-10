@@ -8,6 +8,20 @@ namespace RealAntennas
 {
     public class RATools : object
     {
+        private static bool? _RP1Found = null;
+        public static bool RP1Found
+        {
+            get
+            {
+                if (!_RP1Found.HasValue)
+                {
+                    var assembly = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name == "RP0")?.assembly;
+                    _RP1Found = assembly != null;
+                }
+                return _RP1Found.Value;
+            }
+        }
+
         public static double LinearScale(double x) => math.pow(10, x / 10);
         public static float LinearScale(float x) => math.pow(10, x / 10);
         public static double LogScale(double x) => 10 * math.log10(x);

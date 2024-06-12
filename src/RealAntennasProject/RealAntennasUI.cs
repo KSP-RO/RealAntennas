@@ -29,7 +29,10 @@ namespace RealAntennas
             GameEvents.OnMapExited.Remove(OnMapExit);
             GameEvents.onGUIApplicationLauncherReady.Remove(OnGuiAppLauncherReady);
             if (button != null)
+            {
+                GameEvents.onGameSceneLoadRequested.Remove(OnSceneChange);
                 ApplicationLauncher.Instance.RemoveModApplication(button);
+            }
         }
 
         public void OnMapExit()

@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub workflows", "GitHub 
 	ProjectSection(SolutionItems) = preProject
 		..\.github\workflows\attach-release-artifacts.yml = ..\.github\workflows\attach-release-artifacts.yml
 		..\.github\workflows\build.yml = ..\.github\workflows\build.yml
+		..\.github\workflows\pr-comment.yml = ..\.github\workflows\pr-comment.yml
 	EndProjectSection
 EndProject
 Global

@@ -1,4 +1,5 @@
-﻿using KSP.UI.Screens;
+﻿using ClickThroughFix;
+using KSP.UI.Screens;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -55,7 +56,7 @@ namespace RealAntennas
         {
             if (showUI)
             {
-                winPos = GUILayout.Window(GetHashCode(), winPos, WindowGUI, modName, GUILayout.MinWidth(200));
+                winPos = ClickThruBlocker.GUILayoutWindow(GetHashCode(), winPos, WindowGUI, modName, GUILayout.MinWidth(200));
             }
         }
 

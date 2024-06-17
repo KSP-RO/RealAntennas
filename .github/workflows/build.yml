@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, CI ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
@@ -48,6 +48,12 @@ jobs:
           mkdir -p "${KSP_DLL_PATH}"
           7z.exe x "-p${env:KSP_ZIP_PASSWORD}" 'KSP_Assemblies.zip' "-o${KSP_DLL_PATH}"
           rm 'KSP_Assemblies.zip'
+
+      - name: Update AssemblyInfo
+        uses: KSP-RO/BuildTools/update-assembly-info@master
+        with:
+          path: ${GITHUB_WORKSPACE}/src/RealAntennasProject/Properties/AssemblyInfo.cs
+          tag: ${{ github.event.release.tag_name }}
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2

@@ -22,22 +22,44 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ env.tagged_branch }}
-          
-      - name: Download artifact
-        id: download-artifact
-        uses: dawidd6/action-download-artifact@v5
+
+      - name: Download required assemblies
+        id: download-assemblies
+        uses: KSP-RO/BuildTools/download-assemblies@master
         with:
-          commit: ${{ github.sha }}
-          workflow: build.yml
-          name: RealAntennas
-          skip_unpack: true
+          KSP_ZIP_PASSWORD: ${{ secrets.KSP_ZIP_PASSWORD }}
           
+      # Install .NET SDKs
+      - name: Setup .NET Core 3.1
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.x
+      - name: Setup .NET 5.0
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+
+      - name: Update AssemblyInfo
+        uses: KSP-RO/BuildTools/update-assembly-info@master
+        with:
+          path: ${GITHUB_WORKSPACE}/src/RealAntennasProject/Properties/AssemblyInfo.cs
+          tag: ${{ github.event.release.tag_name }}
+
+      - name: Build mod solution
+        run: |
+          msbuild ${GITHUB_WORKSPACE}/src/RealAntennasProject.sln /t:build /restore /p:RestorePackagesConfig=true /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}"
+          
+      - name: Remove excess DLLs
+        uses: KSP-RO/BuildTools/remove-excess-dlls@master
+        with:
+          path: ${GITHUB_WORKSPACE}/GameData/
+
       - name: Update version file
         uses: KSP-RO/BuildTools/update-version-file@master
         with:
           tag: ${{ github.event.release.tag_name }}
           path: ${GITHUB_WORKSPACE}/GameData/RealAntennas/RealAntennas.version
-        
+
       - name: Update changelog file
         uses: KSP-RO/BuildTools/process-changelog@master
         with:
@@ -53,18 +75,17 @@ jobs:
           echo "Release zip: ${RELEASE_DIR}/RealAntennas-${{ github.event.release.tag_name }}.zip"
           mkdir -v "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp -v -R "${GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
+          cp -v -R "${GITHUB_WORKSPACE}/GameData/RealAntennas" "${RELEASE_DIR}"
           cd ${RELEASE_DIR}
-          zip -r RealAntennas-${{ github.event.release.tag_name }}.zip GameData
-          ls -lrt -d -1 "${RELEASE_DIR}"/{*,.*}
-        
+          zip -r RealAntennas-${{ github.event.release.tag_name }}.zip RealAntennas
+
       - name: Upload package to release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./RealAntennas.zip
+          asset_path: ${{ steps.assemble-release.outputs.release-dir }}/RealAntennas-${{ github.event.release.tag_name }}.zip
           asset_name: RealAntennas-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
 
@@ -72,7 +93,7 @@ jobs:
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
-            
+
       - name: Commit changes
         shell: bash
         env:

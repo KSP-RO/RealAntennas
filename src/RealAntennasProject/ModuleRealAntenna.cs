@@ -11,7 +11,7 @@ namespace RealAntennas
         private const string PAWGroup = "RealAntennas";
         private const string PAWGroupPlanner = "Antenna Planning";
         [KSPField(guiActiveEditor = true, guiName = "Antenna", isPersistant = true, groupName = PAWGroup, groupDisplayName = PAWGroup),
-        UI_Toggle(disabledText = "<color=red><b>Disabled</b></color>", enabledText = "<color=green>Enabled</color>", scene =UI_Scene.Editor)]
+        UI_Toggle(disabledText = "<color=red><b>Disabled</b></color>", enabledText = "<color=green>Enabled</color>", scene = UI_Scene.Editor)]
         public bool _enabled = true;
 
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Gain", guiUnits = " dBi", guiFormat = "F1", groupName = PAWGroup, groupDisplayName = PAWGroup)]
@@ -70,6 +70,7 @@ namespace RealAntennas
         public static float InactivePowerConsumptionMult = 0.1f;
         private float DefaultPacketInterval = 1.0f;
         private bool scienceMonitorActive = false;
+        private int actualMaxTechLevel = 0;
 
         public float PowerDraw => RATools.LogScale(PowerDrawLinear);
         public float PowerDrawLinear => RATools.LinearScale(TxPower) / RAAntenna.PowerEfficiency;
@@ -117,6 +118,7 @@ namespace RealAntennas
         public void OnDestroy()
         {
             GameEvents.OnGameSettingsApplied.Remove(ApplyGameSettings);
+            GameEvents.OnPartUpgradePurchased.Remove(OnPartUpgradePurchased);
         }
 
         public void Configure(ConfigNode node)
@@ -134,14 +136,19 @@ namespace RealAntennas
             Fields[nameof(_enabled)].uiControlEditor.onFieldChanged = OnAntennaEnableChange;
             (Fields[nameof(TxPower)].uiControlEditor as UI_FloatRange).maxValue = MaxTxPower;
 
-            if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER) maxTechLevel = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel;
-            if (Fields[nameof(TechLevel)].uiControlEditor is UI_FloatRange fr) 
+            actualMaxTechLevel = maxTechLevel;    // maxTechLevel value can come from applied PartUpgrades
+            int maxLvlFromParams = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel;
+            if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER)
             {
-                fr.maxValue = maxTechLevel;
-                if (fr.maxValue == fr.minValue)
-                    fr.maxValue += 0.001f;
+                maxTechLevel = actualMaxTechLevel = maxLvlFromParams;
             }
-            if (TechLevel < 0) TechLevel = maxTechLevel;
+            else if (RATools.RP1Found)
+            {
+                // With RP-1 present, always allow selecting all TLs but validate the user choice on vessel getting built
+                maxTechLevel = maxLvlFromParams;
+            }
+            UpdateMaxTechLevelInUI();
+            if (TechLevel < 0) TechLevel = actualMaxTechLevel;
 
             RAAntenna.Name = part.partInfo.title;
             if (!RAAntenna.CanTarget)
@@ -158,12 +165,17 @@ namespace RealAntennas
             SetupIdlePower();
             RecalculateFields();
             SetFieldVisibility(_enabled);
+            ApplyTLColoring();
 
             if (HighLogic.LoadedSceneIsFlight)
             {
                 isEnabled = _enabled;
                 if (_enabled)
                     GameEvents.OnGameSettingsApplied.Add(ApplyGameSettings);
+            }
+            else if (HighLogic.LoadedSceneIsEditor)
+            {
+                GameEvents.OnPartUpgradePurchased.Add(OnPartUpgradePurchased);
             }
         }
 
@@ -240,22 +252,60 @@ namespace RealAntennas
             Fields[nameof(plannerActiveTxTime)].uiControlEditor.onFieldChanged += OnPlannerActiveTxTimeChanged;
         }
 
+        private void UpdateMaxTechLevelInUI()
+        {
+            if (Fields[nameof(TechLevel)].uiControlEditor is UI_FloatRange fr)
+            {
+                fr.maxValue = maxTechLevel;
+                if (fr.maxValue == fr.minValue)
+                    fr.maxValue += 0.001f;
+            }
+        }
+
         private void OnPlannerActiveTxTimeChanged(BaseField field, object obj) => RecalculatePlannerECConsumption();
         private void OnAntennaEnableChange(BaseField field, object obj) { SetFieldVisibility(_enabled); RecalculatePlannerECConsumption(); }
         private void OnRFBandChange(BaseField f, object obj) => RecalculateFields();
         private void OnTxPowerChange(BaseField f, object obj) => RecalculateFields();
         private void OnTechLevelChange(BaseField f, object obj)     // obj is the OLD value
         {
+            ApplyTLColoring();
             string oldBand = RFBand;
             ConfigBandOptions();
             RecalculateFields();
             if (!oldBand.Equals(RFBand)) MonoUtilities.RefreshPartContextWindow(part);
         }
+
         private void OnTechLevelChangeSymmetry(BaseField f, object obj) => ConfigBandOptions();
 
         private void ApplyGameSettings()
         {
             StockRateModifier = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().StockRateModifier;
+        }
+
+        /// <summary>
+        /// Handles TL PartUpgrade getting purchased in Editor scene
+        /// </summary>
+        /// <param name="upgd"></param>
+        private void OnPartUpgradePurchased(PartUpgradeHandler.Upgrade upgd)
+        {
+            var tlInf = TechLevelInfo.GetTechLevel(upgd.name);
+            if (tlInf != null && tlInf.Level > actualMaxTechLevel)
+            {
+                actualMaxTechLevel = tlInf.Level;
+                if (!RATools.RP1Found) maxTechLevel = actualMaxTechLevel;
+                UpdateMaxTechLevelInUI();
+                ApplyTLColoring();
+            }
+        }
+
+        private void ApplyTLColoring()
+        {
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                BaseField f = Fields[nameof(TechLevel)];
+                f.guiFormat = techLevel > actualMaxTechLevel ? "'<color=orange>'#'</color>'" : "N0";
+                f.guiName = techLevel > actualMaxTechLevel ? "<color=orange>Tech Level</color>" : "Tech Level";
+            }
         }
 
         private void ConfigBandOptions()
@@ -389,5 +439,67 @@ namespace RealAntennas
             double ec = _enabled ? RAAntenna.IdlePowerDraw + (RAAntenna.PowerDrawLinear * 1e-6 * plannerActiveTxTime) : 0;
             plannerECConsumption = new KeyValuePair<string, double>("ElectricCharge", -ec);
         }
+
+        #region RP-1 integration
+        /// <summary>
+        /// Called from RP-1 VesselBuildValidator
+        /// </summary>
+        /// <param name="validationError"></param>
+        /// <param name="canBeResolved"></param>
+        /// <param name="costToResolve"></param>
+        /// <returns></returns>
+        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve, out string techToResolve)
+        {
+            validationError = null;
+            canBeResolved = false;
+            costToResolve = 0;
+            techToResolve = string.Empty;
+
+            if (!_enabled || techLevel <= actualMaxTechLevel) return true;
+
+            PartUpgradeHandler.Upgrade upgd = GetUpgradeForTL(techLevel);
+            if (PartUpgradeManager.Handler.IsAvailableToUnlock(upgd.name))
+            {
+                canBeResolved = true;
+                costToResolve = upgd.entryCost;
+                validationError = $"purchase {upgd.title}";
+            }
+            else
+            {
+                techToResolve = upgd.techRequired;
+                validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(upgd.techRequired)}";
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Called from RP-1 VesselBuildValidator
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool ResolveValidationError()
+        {
+            PartUpgradeHandler.Upgrade upgd = GetUpgradeForTL(techLevel);
+            if (upgd == null)
+                return false;
+            return PurchaseConfig(upgd);
+        }
+
+        private static bool PurchaseConfig(PartUpgradeHandler.Upgrade upgd)
+        {
+            CurrencyModifierQuery cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -upgd.entryCost, 0, 0);
+            if (!cmq.CanAfford())
+                return false;
+            PartUpgradeManager.Handler.SetUnlocked(upgd.name, true);
+            GameEvents.OnPartUpgradePurchased.Fire(upgd);
+            return true;
+        }
+
+        private static PartUpgradeHandler.Upgrade GetUpgradeForTL(int techLevel)
+        {
+            TechLevelInfo tlInf = TechLevelInfo.GetTechLevel(techLevel);
+            return PartUpgradeManager.Handler.GetUpgrade(tlInf.name);
+        }
+        #endregion
     }
 }

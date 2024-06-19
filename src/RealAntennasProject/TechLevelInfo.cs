@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using UniLinq;
 using UnityEngine;
 
 namespace RealAntennas
@@ -48,14 +49,26 @@ namespace RealAntennas
 
         public static TechLevelInfo GetTechLevel(int i)
         {
-            if (!initialized) 
-                Init(GameDatabase.Instance.GetConfigNode("RealAntennas/RealAntennasCommNetParams/RealAntennasCommNetParams"));
+            EnsureInitialized();
             i = Mathf.Clamp(i, 0, MaxTL);
             if (All.TryGetValue(i, out TechLevelInfo info))
             {
                 return info;
             }
             return All[0];
+        }
+
+        public static TechLevelInfo GetTechLevel(string name)
+        {
+            EnsureInitialized();
+            // Note: consider a separate dictionary if the lookups start getting called from hot paths
+            return All.Values.FirstOrDefault(inf => inf.name == name);
+        }
+
+        private static void EnsureInitialized()
+        {
+            if (!initialized)
+                Init(GameDatabase.Instance.GetConfigNode("RealAntennas/RealAntennasCommNetParams/RealAntennasCommNetParams"));
         }
     }
 }

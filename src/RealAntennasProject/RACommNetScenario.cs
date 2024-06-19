@@ -1,7 +1,9 @@
 ﻿using CommNet;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using Upgradeables;
 
 namespace RealAntennas
 {
@@ -40,6 +42,7 @@ namespace RealAntennas
 
                 ApplyGameSettings();
                 GameEvents.OnGameSettingsApplied.Add(ApplyGameSettings);
+                GameEvents.OnKSCFacilityUpgraded.Add(OnKSCFacilityUpgraded);
             }
             else StartCoroutine(NotifyDisabled());
         }
@@ -94,6 +97,7 @@ namespace RealAntennas
             if (Network) Destroy(Network);
             if (UI) Destroy(UI);
             GameEvents.OnGameSettingsApplied.Remove(ApplyGameSettings);
+            GameEvents.OnKSCFacilityUpgraded.Remove(OnKSCFacilityUpgraded);
         }
 
         public void RebuildHomes()
@@ -112,6 +116,23 @@ namespace RealAntennas
         {
             debugWalkLogging = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().debugWalkLogging;
             debugWalkInterval = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().debugWalkInterval;
+        }
+
+        private void OnKSCFacilityUpgraded(UpgradeableFacility facility, int lvl)
+        {
+            string tsFacId = ScenarioUpgradeableFacilities.SlashSanitize(nameof(SpaceCenterFacility.TrackingStation));
+            if (string.Equals(facility.id, tsFacId, StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyTSLevelChange();
+            }
+        }
+
+        private void ApplyTSLevelChange()
+        {
+            Debug.LogFormat($"{ModTag} Applying TS level change");
+            float fTSLvl = ScenarioUpgradeableFacilities.GetFacilityLevel(SpaceCenterFacility.TrackingStation);
+            GroundStationTechLevel = Mathf.RoundToInt(MaxTL * (HighLogic.CurrentGame.Mode == Game.Modes.CAREER ? fTSLvl : 1));
+            Network.ResetNetwork();
         }
 
         private void Initialize()

@@ -117,6 +117,7 @@ namespace RealAntennas
         {
             if (Network) Destroy(Network);
             if (UI) Destroy(UI);
+            HomeNodeTypes.Destroy();
             GameEvents.OnGameSettingsApplied.Remove(ApplyGameSettings);
             GameEvents.OnKSCFacilityUpgraded.Remove(OnKSCFacilityUpgraded);
         }
@@ -164,6 +165,7 @@ namespace RealAntennas
                 Antenna.Encoder.Init(RAParamNode);
                 TechLevelInfo.Init(RAParamNode);
                 Targeting.TargetModeInfo.Init(RAParamNode);
+                HomeNodeTypes.Init(RAParamNode);
                 RAParamNode.TryGetValue("minRelayTL", ref minRelayTL);
                 staticInit = true;
             }
@@ -202,6 +204,7 @@ namespace RealAntennas
                         }
                     }
                 }
+                HomeNodeTypes.RebuildHomesDict(GroundStations);
                 Debug.Log(sb.ToStringAndRelease());
             }
         }

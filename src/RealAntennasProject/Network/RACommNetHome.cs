@@ -50,8 +50,11 @@ namespace RealAntennas.Network
             node.TryGetValue("icon", ref icon);
             SetTransformFromLatLonAlt(lat, lon, alt, body);
         }
+
         protected override void CreateNode()
         {
+            if (!enabled) return;
+
             if (comm == null)
             {
                 comm = new RACommNode(nodeTransform)

@@ -46,7 +46,7 @@ namespace RealAntennas.MapUI
             if (MapView.fetch is MapView)
             {
                 Texture2D defaultTex = GameDatabase.Instance.GetTexture(icon, false);
-                foreach (RACommNetHome home in FindObjectsOfType<RACommNetHome>())
+                foreach (RACommNetHome home in RACommNetScenario.EnabledStations)
                 {
                     MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
                     SiteNode siteNode = SiteNode.Spawn(gs);

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UniLinq;
 using UnityEngine;
 using Upgradeables;
 
@@ -23,6 +24,7 @@ namespace RealAntennas
         public static int MaxTL => Mathf.Min(TechLevelInfo.MaxTL, HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel);
         public static int minRelayTL = 0;
 
+        public static IEnumerable<Network.RACommNetHome> EnabledStations => GroundStations.Values.Where(x => x.enabled);
         public Network.RACommNetNetwork Network { get; private set; } = null;
         public MapUI.RACommNetUI UI { get; private set; } = null;
         public MapUI.Settings MapSettings { get; private set; } = null;
@@ -69,6 +71,18 @@ namespace RealAntennas
             if (gameNode.HasNode("MapUISettings"))
                 ConfigNode.LoadObjectFromConfig(MapSettings, gameNode.GetNode("MapUISettings"));
             Targeting.TextureTools.Load(gameNode);
+
+            ConfigNode homeState = null;
+            if (gameNode.TryGetNode("HomeState", ref homeState))
+            {
+                foreach (ConfigNode.Value v in homeState.values)
+                {
+                    if (GroundStations.TryGetValue(v.name, out Network.RACommNetHome home))
+                    {
+                        home.enabled = bool.Parse(v.value);
+                    }
+                }
+            }
         }
 
         public override void OnSave(ConfigNode gameNode)
@@ -78,6 +92,13 @@ namespace RealAntennas
             node.name = "MapUISettings";
             gameNode.AddNode(node);
             Targeting.TextureTools.Save(gameNode);
+
+            node = new ConfigNode("HomeState");
+            foreach (Network.RACommNetHome home in GroundStations.Values)
+            {
+                node.AddValue(home.nodeName, home.enabled);
+            }
+            gameNode.AddNode(node);
         }
 
         private System.Collections.IEnumerator NotifyDisabled()

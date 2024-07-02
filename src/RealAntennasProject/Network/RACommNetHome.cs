@@ -27,7 +27,7 @@ namespace RealAntennas.Network
         {
             name = node.GetValue("name");
             nodeName = node.GetValue("objectName");
-            displaynodeName = nodeName;
+            displaynodeName = node.GetValue("displayName") ?? nodeName;
             isKSC = true;
             isPermanent = true;
             config = node;

@@ -33,10 +33,10 @@ namespace RealAntennas.Kerbalism
                     }
                     foreach (CommNet.CommLink clink in path)
                     {
-                        sList.Add(new string[1] { clink.end.name });
+                        sList.Add(new string[1] { clink.end.displayName });
                     }
                     //sList.Add(new string[1] { path.First.end.name });
-                    target_name = path.First.end.name;
+                    target_name = path.First.end.displayName;
                 }
 
                 p1.GetType().GetField("linked").SetValue(p1, raCNV.IsConnectedHome); // Link Status

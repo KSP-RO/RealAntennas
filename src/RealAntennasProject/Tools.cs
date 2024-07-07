@@ -43,7 +43,7 @@ namespace RealAntennas
             double roundedGain = 0;
             foreach (RealAntenna ra in list)
             {
-                roundedGain = math.Round(ra.Gain, 1);
+                roundedGain = math.round(ra.Gain, 1);
                 s += $"{ra.RFBand.name}-Band: {roundedGain} dBi\n";
             }
             return s;

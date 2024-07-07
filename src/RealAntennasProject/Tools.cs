@@ -40,11 +40,11 @@ namespace RealAntennas
         public static string PrettyPrint(List<RealAntenna> list)
         {
             string s = string.Empty;
-            double roundedGain = 0;
+            //double roundedGain = 0;
             foreach (RealAntenna ra in list)
             {
-                roundedGain = math.round(ra.Gain, 1);
-                s += $"{ra.RFBand.name}-Band: {roundedGain} dBi\n";
+                //roundedGain = math.round(ra.Gain, 1);
+                s += $"{ra.RFBand.name}-Band: {ra.Gain:F1} dBi\n";
             }
             return s;
         }

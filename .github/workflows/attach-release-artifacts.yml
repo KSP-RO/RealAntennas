@@ -8,7 +8,21 @@ jobs:
   attach-release-artifacts:
     runs-on: ubuntu-latest
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      - name: Get Branch
+        shell: bash
+        run: |
+          releaseBranch=${{ github.event.release.target_commitish }}
+          echo "Found branch ${releaseBranch}"
+          echo "tagged_branch=${releaseBranch}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ env.tagged_branch }}
+          
       - name: Download artifact
         id: download-artifact
         uses: dawidd6/action-download-artifact@v5
@@ -17,7 +31,33 @@ jobs:
           workflow: build.yml
           name: RealAntennas
           skip_unpack: true
+          
+      - name: Update version file
+        uses: KSP-RO/BuildTools/update-version-file@master
+        with:
+          tag: ${{ github.event.release.tag_name }}
+          path: ${GITHUB_WORKSPACE}/GameData/RealAntennas/RealAntennas.version
+        
+      - name: Update changelog file
+        uses: KSP-RO/BuildTools/process-changelog@master
+        with:
+          tag: ${{ github.event.release.tag_name }}
+          body: ${{ github.event.release.body }}
+          path: ${GITHUB_WORKSPACE}/GameData/RealAntennas/changelog.cfg
 
+      - name: Assemble release
+        id: assemble-release
+        run: |
+          RELEASE_DIR="${RUNNER_TEMP}/release"
+          echo "Release dir: ${RELEASE_DIR}"
+          echo "Release zip: ${RELEASE_DIR}/RealAntennas-${{ github.event.release.tag_name }}.zip"
+          mkdir -v "${RELEASE_DIR}"
+          echo "::set-output name=release-dir::${RELEASE_DIR}"
+          cp -v -R "${GITHUB_WORKSPACE}/GameData" "${RELEASE_DIR}"
+          cd ${RELEASE_DIR}
+          zip -r RealAntennas-${{ github.event.release.tag_name }}.zip GameData
+          ls -lrt -d -1 "${RELEASE_DIR}"/{*,.*}
+        
       - name: Upload package to release
         uses: actions/upload-release-asset@v1
         env:
@@ -27,3 +67,21 @@ jobs:
           asset_path: ./RealAntennas.zip
           asset_name: RealAntennas-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
+
+      - name: Setup git config
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+            
+      - name: Commit changes
+        shell: bash
+        env:
+          TAG_STRING: ${{ github.event.release.tag_name }}
+        run: |
+          RELEASEBRANCH=${{ env.tagged_branch }}
+          git add "${GITHUB_WORKSPACE}/GameData/RealAntennas/RealAntennas.version"
+          git add "${GITHUB_WORKSPACE}/GameData/RealAntennas/changelog.cfg"
+          git commit -m "Update version to $TAG_STRING"
+          git push origin $RELEASEBRANCH
+          git tag $TAG_STRING $RELEASEBRANCH --force
+          git push origin $TAG_STRING --force

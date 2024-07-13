@@ -109,7 +109,7 @@ namespace RealAntennas.Network
                         GUILayout.BeginHorizontal();
                         GUILayout.Label($"Total Noise: {data.noise:F2}K");
                         GUILayout.Space(20);
-                        GUILayout.Label($"N0: {data.N0:F2}dB/Hz");
+                        GUILayout.Label($"N0: {data.N0:F2}dBm/Hz");
                         GUILayout.EndHorizontal();
                         GUILayout.EndVertical();
 
@@ -125,7 +125,7 @@ namespace RealAntennas.Network
                         var channelNoise = RATools.LogScale(data.minSymbolRate) + data.N0;
                         GUILayout.BeginVertical("Link Budget", style);
                         GUILayout.Label($"RxPower = TxGain ({data.tx.Gain:F1} dBi) + TxPower ({data.txPower:F1} dBm) - Losses ({(data.pathLoss + data.pointingLoss):F1} dB) + RxGain ({data.rx.Gain:F1} dBi) = {data.rxPower:F1} dBm");
-                        GUILayout.Label($"Min Link Channel Noise Power = N0 ({data.N0:F1} dBm/Hz) * Bandwidth ({RATools.PrettyPrint(data.minSymbolRate)}Hz ({RATools.LogScale(data.minSymbolRate):F1} dB)) = {channelNoise:F1} dB");
+                        GUILayout.Label($"Min Link Channel Noise Power = N0 ({data.N0:F1} dBm/Hz) * Bandwidth ({RATools.PrettyPrint(data.minSymbolRate)}Hz ({RATools.LogScale(data.minSymbolRate):F1} dB)) = {channelNoise:F1} dBm");
                         GUILayout.Label($"Encoder: {encoder}");
                         GUILayout.Label($"Min Link Eb/N0 = RxPower ({data.rxPower:F1} dBm) - Channel Noise Power ({channelNoise:F1} dBm) - Margin ({encoder.RequiredEbN0:F1} dB) = {data.rxPower - channelNoise - encoder.RequiredEbN0:F1}");
                         GUILayout.BeginHorizontal();

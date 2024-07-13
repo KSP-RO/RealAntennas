@@ -42,7 +42,7 @@ namespace RealAntennas
             string s = string.Empty;
             foreach (RealAntenna ra in list)
             {
-                s += $"{ra.RFBand.name}-Band: {ra.Gain} dBi\n";
+                s += $"{ra.RFBand.name}-Band: {ra.Gain:F1} dBi\n";
             }
             return s;
         }

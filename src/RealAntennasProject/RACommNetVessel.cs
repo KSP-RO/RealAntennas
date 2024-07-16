@@ -175,7 +175,7 @@ namespace RealAntennas
             {
                 foreach (ModuleRealAntenna ant in Vessel.FindPartModulesImplementing<ModuleRealAntenna>().ToList())
                 {
-                    if (ant._enabled)
+                    if (ant.Condition == AntennaCondition.Enabled)
                     {
                         ant.RAAntenna.ParentNode = Comm;
                         if (DeployedLoaded(ant.part)) antennaList.Add(ant.RAAntenna);
@@ -192,7 +192,10 @@ namespace RealAntennas
                     foreach (ProtoPartModuleSnapshot snap in part.modules.Where(x => x.moduleName == ModuleRealAntenna.ModuleName))
                     {
                         bool _enabled = true;
-                        snap.moduleValues.TryGetValue(nameof(ModuleRealAntenna._enabled), ref _enabled);
+                        string sState = null;
+                        if (snap.moduleValues.TryGetValue(nameof(ModuleRealAntenna.Condition), ref sState))
+                            _enabled = sState == AntennaCondition.Enabled.ToString();
+
                         // Doesn't get the correct PartModule if multiple, but the only impact is the name, which defaults to the part anyway.
                         if (_enabled && part.partInfo.partPrefab.FindModuleImplementing<ModuleRealAntenna>() is ModuleRealAntenna mra && mra.CanCommUnloaded(snap))
                         {

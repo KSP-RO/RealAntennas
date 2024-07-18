@@ -88,7 +88,7 @@
     <Compile Include="Tools.cs" />
     <Compile Include="Network\RACommNetNetwork.cs" />
     <Compile Include="RACommNode.cs" />
-    <Compile Include="UpgradeScripts\v2_5_AntennaState.cs" />
+    <Compile Include="UpgradeScripts\v2_6_AntennaState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp" />

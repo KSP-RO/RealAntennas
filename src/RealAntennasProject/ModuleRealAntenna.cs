@@ -257,6 +257,9 @@ namespace RealAntennas
             Fields[nameof(sIdlePowerConsumed)].guiActiveEditor = Fields[nameof(sIdlePowerConsumed)].guiActive = showFields;
             Fields[nameof(sAntennaTarget)].guiActive = showFields;
             Fields[nameof(plannerActiveTxTime)].guiActiveEditor = Kerbalism.Kerbalism.KerbalismAssembly is System.Reflection.Assembly;
+            Actions[nameof(PermanentShutdownAction)].active = showFields;
+            Events[nameof(PermanentShutdownEvent)].guiActive = showFields;
+            Events[nameof(PermanentShutdownEvent)].active = showFields;
             Events[nameof(AntennaPlanningGUI)].active = showFields;
             Events[nameof(AntennaPlanningGUI)].guiActive = showFields;
             Events[nameof(DebugAntenna)].active = showFields;
@@ -301,6 +304,29 @@ namespace RealAntennas
         }
 
         private void OnTechLevelChangeSymmetry(BaseField f, object obj) => ConfigBandOptions();
+
+        [KSPEvent(guiActive = true, guiActiveEditor = false, guiName = "Disable antenna permanently", groupName = PAWGroup)]
+        public void PermanentShutdownEvent()
+        {
+            var options = new DialogGUIBase[] {
+                new DialogGUIButton("Yes", () => PermanentShutdownAction(null)),
+                new DialogGUIButton("No", () => {})
+            };
+            var dialog = new MultiOptionDialog("ConfirmDisableAntenna", "Are you sure you want to permanently disable the antenna? Doing this will prevent it from consuming power but the operation is irreversible.", "Disable antenna", HighLogic.UISkin, 300, options);
+            PopupDialog.SpawnPopupDialog(dialog, true, HighLogic.UISkin);
+        }
+
+        [KSPAction("Disable antenna permanently")]
+        public void PermanentShutdownAction(KSPActionParam _)
+        {
+            _enabled = false;
+            Condition = AntennaCondition.PermanentShutdown;
+            SetFieldVisibility();
+            SetupIdlePower();
+            GameEvents.onVesselWasModified.Fire(vessel);    // Need to notify RACommNetVessel about disabling antennas
+            RACommNetScenario scen = RACommNetScenario.Instance as RACommNetScenario;
+            scen?.Network?.ResetNetwork();
+        }
 
         private void ApplyGameSettings()
         {

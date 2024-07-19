@@ -257,24 +257,14 @@ namespace RealAntennas
                 }
                 foreach (Network.RACommNetHome home in homes)
                     foreach (RealAntenna ra in home.Comm.RAAntennaList)
-						if(CheckMatchingGroundStation(peer, ra))
-							if (GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
-							{
-								antenna = ra;
-								res = true;
-							}
+                        if (peer.Compatible(ra) && GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
+                        {
+							antenna = ra;
+							res = true;
+						}
             }
             GUILayout.EndScrollView();
             return res;
-        }
-
-		public bool CheckMatchingGroundStation(RealAntenna peer, RealAntenna station)
-        {
-            if(peer.RFBand == station.RFBand)
-			{
-				return true;
-			}
-			return false;
         }
 
         public RealAntenna GetBestMatchingGroundStation(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)

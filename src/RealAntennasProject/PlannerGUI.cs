@@ -257,7 +257,7 @@ namespace RealAntennas
                 }
                 foreach (Network.RACommNetHome home in homes)
                     foreach (RealAntenna ra in home.Comm.RAAntennaList)
-						if(CheckMatchingGroundStation(peer, ra)
+						if(CheckMatchingGroundStation(peer, ra))
 							if (GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
 							{
 								antenna = ra;

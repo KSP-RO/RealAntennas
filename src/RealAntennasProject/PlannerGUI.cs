@@ -259,9 +259,9 @@ namespace RealAntennas
                     foreach (RealAntenna ra in home.Comm.RAAntennaList)
                         if (peer.Compatible(ra) && GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
                         {
-							antenna = ra;
-							res = true;
-						}
+                            antenna = ra;
+                            res = true;
+                        }
             }
             GUILayout.EndScrollView();
             return res;

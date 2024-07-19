@@ -256,7 +256,7 @@ namespace RealAntennas
                     res = true;
                 }
                 foreach (Network.RACommNetHome home in homes)
-                    foreach (RealAntenna ra in home.Comm.RAAntennaList)
+                    foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.Compatible(peer)))
                         if (GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
                         {
                             antenna = ra;

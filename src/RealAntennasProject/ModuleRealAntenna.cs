@@ -487,12 +487,22 @@ namespace RealAntennas
 
         private static bool PurchaseConfig(PartUpgradeHandler.Upgrade upgd)
         {
-            CurrencyModifierQuery cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -upgd.entryCost, 0, 0);
-            if (!cmq.CanAfford())
+            if (!CanAffordEntryCost(upgd.entryCost))
                 return false;
             PartUpgradeManager.Handler.SetUnlocked(upgd.name, true);
             GameEvents.OnPartUpgradePurchased.Fire(upgd);
             return true;
+        }
+
+        /// <summary>
+        /// NOTE: Harmony-patched from RP-1 to factor in unlock credit.
+        /// </summary>
+        /// <param name="cost"></param>
+        /// <returns></returns>
+        private static bool CanAffordEntryCost(float cost)
+        {
+            CurrencyModifierQuery cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -cost, 0, 0);
+            return cmq.CanAfford();
         }
 
         private static PartUpgradeHandler.Upgrade GetUpgradeForTL(int techLevel)

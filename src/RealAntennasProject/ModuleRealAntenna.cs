@@ -190,20 +190,6 @@ namespace RealAntennas
             }
         }
 
-        public void FixedUpdate()
-        {
-            if (HighLogic.LoadedSceneIsFlight && _enabled)
-            {
-                RAAntenna.AMWTemp = (AMWTemp > 0) ? AMWTemp : Convert.ToSingle(part.temperature);
-                //part.AddThermalFlux(req / Time.fixedDeltaTime);
-                if (Kerbalism.Kerbalism.KerbalismAssembly is null)
-                {
-                    string err = "";
-                    resHandler.UpdateModuleResourceInputs(ref err, 1, 1, true, false);
-                }
-            }
-        }
-
         private void RecalculateFields()
         {
             RAAntenna.TechLevelInfo = TechLevelInfo.GetTechLevel(techLevel);

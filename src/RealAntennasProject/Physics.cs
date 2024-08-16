@@ -259,8 +259,10 @@ namespace RealAntennas
             //
             // P(dBW) = 10*log10(Kb*T*bandwidth) = -228.59917 + 10*log10(T*BW)
         }
+        //RA doesn't see Skopos ground stations as ground stations for whatever reason
+        //Don't directly check if something is a ground station. Instead, see if AMWTemp has been set to something other than the default value, and use it if it is.
         public static float AntennaMicrowaveTemp(RealAntenna rx) =>
-            ((rx.ParentNode as RACommNode)?.ParentBody is CelestialBody) ? rx.AMWTemp : rx.TechLevelInfo.ReceiverNoiseTemperature;
+            (rx.AMWTemp > 1) ? rx.AMWTemp : rx.TechLevelInfo.ReceiverNoiseTemperature;
 
         public static float AtmosphericTemp(RealAntenna rx, Vector3d origin)
         {

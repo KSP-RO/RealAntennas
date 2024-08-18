@@ -6,13 +6,26 @@ using UnityEngine;
 
 namespace RealAntennas
 {
+    [Flags]
+    public enum AntennaCondition
+    {
+        Enabled = 1 << 0,
+        Disabled = 1 << 1,
+        PermanentShutdown = 1 << 2,
+        Broken = 1 << 3
+    }
+
     public class ModuleRealAntenna : ModuleDataTransmitter, IPartCostModifier, IPartMassModifier
     {
         private const string PAWGroup = "RealAntennas";
         private const string PAWGroupPlanner = "Antenna Planning";
-        [KSPField(guiActiveEditor = true, guiName = "Antenna", isPersistant = true, groupName = PAWGroup, groupDisplayName = PAWGroup),
+
+        [KSPField(guiActiveEditor = true, guiName = "Antenna", groupName = PAWGroup, groupDisplayName = PAWGroup),
         UI_Toggle(disabledText = "<color=red><b>Disabled</b></color>", enabledText = "<color=green>Enabled</color>", scene = UI_Scene.Editor)]
         public bool _enabled = true;
+
+        [KSPField(guiActiveEditor = false, guiActive = true, guiName = "Condition", isPersistant = true, groupName = PAWGroup, groupDisplayName = PAWGroup)]
+        public AntennaCondition Condition = AntennaCondition.Enabled;
 
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Gain", guiUnits = " dBi", guiFormat = "F1", groupName = PAWGroup, groupDisplayName = PAWGroup)]
         public float Gain;          // Physical directionality, measured in dBi
@@ -136,6 +149,8 @@ namespace RealAntennas
             Fields[nameof(_enabled)].uiControlEditor.onFieldChanged = OnAntennaEnableChange;
             (Fields[nameof(TxPower)].uiControlEditor as UI_FloatRange).maxValue = MaxTxPower;
 
+            _enabled = Condition != AntennaCondition.Disabled;
+
             actualMaxTechLevel = maxTechLevel;    // maxTechLevel value can come from applied PartUpgrades
             int maxLvlFromParams = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel;
             if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER)
@@ -164,13 +179,13 @@ namespace RealAntennas
             ConfigBandOptions();
             SetupIdlePower();
             RecalculateFields();
-            SetFieldVisibility(_enabled);
+            SetFieldVisibility();
             ApplyTLColoring();
 
             if (HighLogic.LoadedSceneIsFlight)
             {
-                isEnabled = _enabled;
-                if (_enabled)
+                isEnabled = Condition != AntennaCondition.Disabled;
+                if (isEnabled)
                     GameEvents.OnGameSettingsApplied.Add(ApplyGameSettings);
             }
             else if (HighLogic.LoadedSceneIsEditor)
@@ -181,10 +196,10 @@ namespace RealAntennas
 
         private void SetupIdlePower()
         {
-            if (HighLogic.LoadedSceneIsFlight && _enabled)
+            if (HighLogic.LoadedSceneIsFlight && Condition != AntennaCondition.Disabled)
             {
                 var electricCharge = resHandler.inputResources.First(x => x.id == PartResourceLibrary.ElectricityHashcode);
-                electricCharge.rate = (Kerbalism.Kerbalism.KerbalismAssembly is null) ? RAAntenna.IdlePowerDraw : 0;
+                electricCharge.rate = Condition != AntennaCondition.PermanentShutdown && (Kerbalism.Kerbalism.KerbalismAssembly is null) ? RAAntenna.IdlePowerDraw : 0;
                 string err = "";
                 resHandler.UpdateModuleResourceInputs(ref err, 1, 1, false, false);
             }
@@ -192,7 +207,7 @@ namespace RealAntennas
 
         public void FixedUpdate()
         {
-            if (HighLogic.LoadedSceneIsFlight && _enabled)
+            if (HighLogic.LoadedSceneIsFlight && Condition != AntennaCondition.Disabled && Condition != AntennaCondition.PermanentShutdown)
             {
                 RAAntenna.AMWTemp = (AMWTemp > 0) ? AMWTemp : Convert.ToSingle(part.temperature);
                 //part.AddThermalFlux(req / Time.fixedDeltaTime);
@@ -231,16 +246,24 @@ namespace RealAntennas
             if (Fields[nameof(powerText)] is BaseField bf) bf.guiActive = bf.guiActiveEditor = false;      // "Antenna Rating"
         }
 
-        private void SetFieldVisibility(bool en)
+        private void SetFieldVisibility()
         {
-            Fields[nameof(Gain)].guiActiveEditor = Fields[nameof(Gain)].guiActive = en;
-            Fields[nameof(TxPower)].guiActiveEditor = Fields[nameof(TxPower)].guiActive = en;
-            Fields[nameof(TechLevel)].guiActiveEditor = Fields[nameof(TechLevel)].guiActive = en;
-            Fields[nameof(RFBand)].guiActiveEditor = Fields[nameof(RFBand)].guiActive = en;
-            Fields[nameof(sActivePowerConsumed)].guiActiveEditor = Fields[nameof(sActivePowerConsumed)].guiActive = en;
-            Fields[nameof(sIdlePowerConsumed)].guiActiveEditor = Fields[nameof(sIdlePowerConsumed)].guiActive = en;
-            Fields[nameof(sAntennaTarget)].guiActive = en;
+            bool showFields = Condition != AntennaCondition.Disabled && Condition != AntennaCondition.PermanentShutdown;
+            Fields[nameof(Gain)].guiActiveEditor = Fields[nameof(Gain)].guiActive = showFields;
+            Fields[nameof(TxPower)].guiActiveEditor = Fields[nameof(TxPower)].guiActive = showFields;
+            Fields[nameof(TechLevel)].guiActiveEditor = Fields[nameof(TechLevel)].guiActive = showFields;
+            Fields[nameof(RFBand)].guiActiveEditor = Fields[nameof(RFBand)].guiActive = showFields;
+            Fields[nameof(sActivePowerConsumed)].guiActiveEditor = Fields[nameof(sActivePowerConsumed)].guiActive = showFields;
+            Fields[nameof(sIdlePowerConsumed)].guiActiveEditor = Fields[nameof(sIdlePowerConsumed)].guiActive = showFields;
+            Fields[nameof(sAntennaTarget)].guiActive = showFields;
             Fields[nameof(plannerActiveTxTime)].guiActiveEditor = Kerbalism.Kerbalism.KerbalismAssembly is System.Reflection.Assembly;
+            Actions[nameof(PermanentShutdownAction)].active = showFields;
+            Events[nameof(PermanentShutdownEvent)].guiActive = showFields;
+            Events[nameof(PermanentShutdownEvent)].active = showFields;
+            Events[nameof(AntennaPlanningGUI)].active = showFields;
+            Events[nameof(AntennaPlanningGUI)].guiActive = showFields;
+            Events[nameof(DebugAntenna)].active = showFields;
+            Events[nameof(DebugAntenna)].guiActive = showFields;
         }
 
         private void SetupUICallbacks()
@@ -263,7 +286,12 @@ namespace RealAntennas
         }
 
         private void OnPlannerActiveTxTimeChanged(BaseField field, object obj) => RecalculatePlannerECConsumption();
-        private void OnAntennaEnableChange(BaseField field, object obj) { SetFieldVisibility(_enabled); RecalculatePlannerECConsumption(); }
+        private void OnAntennaEnableChange(BaseField field, object obj)
+        {
+            Condition = _enabled ? AntennaCondition.Enabled : AntennaCondition.Disabled;
+            SetFieldVisibility();
+            RecalculatePlannerECConsumption();
+        }
         private void OnRFBandChange(BaseField f, object obj) => RecalculateFields();
         private void OnTxPowerChange(BaseField f, object obj) => RecalculateFields();
         private void OnTechLevelChange(BaseField f, object obj)     // obj is the OLD value
@@ -276,6 +304,29 @@ namespace RealAntennas
         }
 
         private void OnTechLevelChangeSymmetry(BaseField f, object obj) => ConfigBandOptions();
+
+        [KSPEvent(guiActive = true, guiActiveEditor = false, guiName = "Disable antenna permanently", groupName = PAWGroup)]
+        public void PermanentShutdownEvent()
+        {
+            var options = new DialogGUIBase[] {
+                new DialogGUIButton("Yes", () => PermanentShutdownAction(null)),
+                new DialogGUIButton("No", () => {})
+            };
+            var dialog = new MultiOptionDialog("ConfirmDisableAntenna", "Are you sure you want to permanently disable the antenna? Doing this will prevent it from consuming power but the operation is irreversible.", "Disable antenna", HighLogic.UISkin, 300, options);
+            PopupDialog.SpawnPopupDialog(dialog, true, HighLogic.UISkin);
+        }
+
+        [KSPAction("Disable antenna permanently")]
+        public void PermanentShutdownAction(KSPActionParam _)
+        {
+            _enabled = false;
+            Condition = AntennaCondition.PermanentShutdown;
+            SetFieldVisibility();
+            SetupIdlePower();
+            GameEvents.onVesselWasModified.Fire(vessel);    // Need to notify RACommNetVessel about disabling antennas
+            RACommNetScenario scen = RACommNetScenario.Instance as RACommNetScenario;
+            scen?.Network?.ResetNetwork();
+        }
 
         private void ApplyGameSettings()
         {
@@ -343,7 +394,7 @@ namespace RealAntennas
             return res;
         }
 
-        public override bool CanComm() => base.CanComm() && (!Deployable || Deployed);
+        public override bool CanComm() => Condition == AntennaCondition.Enabled && (!Deployable || Deployed) && base.CanComm();
 
         public override string ToString() => RAAntenna.ToString();
 
@@ -419,9 +470,9 @@ namespace RealAntennas
 
         #region Cost and Mass Modifiers
         public float GetModuleCost(float defaultCost, ModifierStagingSituation sit) =>
-            _enabled ? RAAntenna.TechLevelInfo.BaseCost + (RAAntenna.TechLevelInfo.CostPerWatt * RATools.LinearScale(TxPower)/1000) : 0;
+            Condition != AntennaCondition.Disabled ? RAAntenna.TechLevelInfo.BaseCost + (RAAntenna.TechLevelInfo.CostPerWatt * RATools.LinearScale(TxPower)/1000) : 0;
         public float GetModuleMass(float defaultMass, ModifierStagingSituation sit) =>
-            _enabled && applyMassModifier ? (RAAntenna.TechLevelInfo.BaseMass + (RAAntenna.TechLevelInfo.MassPerWatt * RATools.LinearScale(TxPower) / 1000)) / 1000 : 0;
+            Condition != AntennaCondition.Disabled && applyMassModifier ? (RAAntenna.TechLevelInfo.BaseMass + (RAAntenna.TechLevelInfo.MassPerWatt * RATools.LinearScale(TxPower) / 1000)) / 1000 : 0;
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
         #endregion
@@ -435,8 +486,9 @@ namespace RealAntennas
         }
         private void RecalculatePlannerECConsumption()
         {
+            bool consumesPower = Condition != AntennaCondition.Disabled && Condition != AntennaCondition.PermanentShutdown;
             // RAAntenna.IdlePowerDraw is in kW (ec/s), PowerDrawLinear is in mW
-            double ec = _enabled ? RAAntenna.IdlePowerDraw + (RAAntenna.PowerDrawLinear * 1e-6 * plannerActiveTxTime) : 0;
+            double ec = consumesPower ? RAAntenna.IdlePowerDraw + (RAAntenna.PowerDrawLinear * 1e-6 * plannerActiveTxTime) : 0;
             plannerECConsumption = new KeyValuePair<string, double>("ElectricCharge", -ec);
         }
 
@@ -455,7 +507,7 @@ namespace RealAntennas
             costToResolve = 0;
             techToResolve = string.Empty;
 
-            if (!_enabled || techLevel <= actualMaxTechLevel) return true;
+            if (Condition == AntennaCondition.Disabled || techLevel <= actualMaxTechLevel) return true;
 
             PartUpgradeHandler.Upgrade upgd = GetUpgradeForTL(techLevel);
             if (PartUpgradeManager.Handler.IsAvailableToUnlock(upgd.name))

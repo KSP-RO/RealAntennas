@@ -17,14 +17,14 @@ namespace RealAntennas.Precompute
         [WriteOnly] public NativeArray<float> txFreq;
         [WriteOnly] public NativeArray<float> txGain;
         [WriteOnly] public NativeArray<float> txBeamwidth;
-        [WriteOnly] public NativeArray<bool> txHome;
+        [WriteOnly] public NativeArray<bool> txInAtmosphere;
         [WriteOnly] public NativeArray<double3> txPos;
         [WriteOnly] public NativeArray<float3> txDir;
 
         [WriteOnly] public NativeArray<float> rxFreq;
         [WriteOnly] public NativeArray<float> rxGain;
         [WriteOnly] public NativeArray<float> rxBeamwidth;
-        [WriteOnly] public NativeArray<bool> rxHome;
+        [WriteOnly] public NativeArray<bool> rxInAtmosphere;
         [WriteOnly] public NativeArray<bool> rxTracking;
         [WriteOnly] public NativeArray<double3> rxPos;
         [WriteOnly] public NativeArray<float3> rxDir;
@@ -46,14 +46,14 @@ namespace RealAntennas.Precompute
             txFreq[index] = tx.freq;
             txGain[index] = tx.gain;
             txBeamwidth[index] = tx.beamwidth;
-            txHome[index] = tx.isHome;
+            txInAtmosphere[index] = tx.inAtmosphere;
             txPos[index] = tx.position;
             txDir[index] = tx.isTracking ? (float3) (rx.position - tx.position) : tx.dir;
 
             rxFreq[index] = rx.freq;
             rxGain[index] = rx.gain;
             rxBeamwidth[index] = rx.beamwidth;
-            rxHome[index] = rx.isHome;
+            txInAtmosphere[index] = rx.inAtmosphere;
             rxTracking[index] = rx.isTracking;
             rxPos[index] = rx.position;
             rxDir[index] = rx.isTracking ? (float3) (tx.position - rx.position) : rx.dir;
@@ -61,7 +61,8 @@ namespace RealAntennas.Precompute
         }
     }
 
-    // Derive the noise temp of an antenna.  Skip homes, since they do not have valid pointing yet.
+    // Derive the noise temp of an antenna.  Skip antennas that are considered
+    // to track everything at once, since they do not have valid pointing yet.
     [BurstCompile]
     public struct PreCalcAntennaNoise : IJobParallelFor
     {
@@ -72,7 +73,7 @@ namespace RealAntennas.Precompute
         public void Execute(int index)
         {
             AntennaData ant = antennas[index];
-            noiseTemp[index] = ant.isHome ? 0 : Precompute.NoiseFromOccluders(ant, occluders);
+            noiseTemp[index] = ant.isTracking ? 0 : Precompute.NoiseFromOccluders(ant, occluders);
         }
     }
 
@@ -98,7 +99,7 @@ namespace RealAntennas.Precompute
     public struct CalcAntennaAtmoNoise : IJobParallelForDefer
     {
         [ReadOnly] public NativeArray<double3> rxPos;
-        [ReadOnly] public NativeArray<bool> rxHome;
+        [ReadOnly] public NativeArray<bool> rxInAtmosphere;
         [ReadOnly] public NativeArray<float> rxFreq;
         [ReadOnly] public NativeArray<double3> txPos;
         [ReadOnly] public NativeArray<double3> rxSurfaceNormal;
@@ -108,7 +109,7 @@ namespace RealAntennas.Precompute
         public void Execute(int index)
         {
             float el = MathUtils.ElevationAngle(rxPos[index], rxSurfaceNormal[index], txPos[index]);
-            atmoNoise[index] = rxHome[index] ? Physics.AtmosphereNoiseTemperature(el, rxFreq[index]) : 0;
+            atmoNoise[index] = rxInAtmosphere[index] ? Physics.AtmosphereNoiseTemperature(el, rxFreq[index]) : 0;
             elevation[index] = el;
         }
     }

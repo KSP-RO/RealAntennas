@@ -28,7 +28,7 @@ namespace RealAntennas
         public virtual float AMWTemp { get; set; }
         public virtual float Beamwidth => Physics.Beamwidth(Gain);
 
-        public Antenna.Encoder Encoder => Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level); 
+        public Antenna.Encoder Encoder => Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level);
         public virtual float RequiredCI => Encoder.RequiredEbN0;
 
         public ModuleRealAntenna Parent { get; internal set; }
@@ -38,6 +38,8 @@ namespace RealAntennas
         public Vector3d PrecisePosition => ParentNode.precisePosition;
         public Vector3d TransformPosition => ParentNode.position;
         public virtual AntennaShape Shape => Gain <= Physics.MaxOmniGain ? AntennaShape.Omni : AntennaShape.Dish;
+        // Whether the antenna is a dish considered to be tracking everything at
+        // once. This is typically used for ground stations.
         public bool IsTracking => Shape != AntennaShape.Omni && Target == null;
         public virtual bool CanTarget => Shape != AntennaShape.Omni && !IsTracking;
         public Vector3 ToTarget => (CanTarget && Target != null) ? (Vector3) (Target.transform.position - Position) : Vector3.zero;

@@ -357,9 +357,9 @@ namespace RealAntennas
             primaryFarNode.precisePosition = primaryFarNode.position;
             fixedNode.isHome = fixedAntenna.ParentNode?.isHome ?? false;
             primaryNearNode.isHome = primaryFarNode.isHome = primaryAntenna.ParentNode?.isHome ?? false;
-            primaryNearNode.ParentBody = primaryNearNode.isHome ? home : null;
-            primaryFarNode.ParentBody = primaryFarNode.isHome ? home : null;
-            fixedNode.ParentBody = fixedNode.isHome ? home : null;
+            primaryNearNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
+            primaryFarNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
+            fixedNode.ParentBody = (fixedAntenna.ParentNode as RACommNode)?.ParentBody;
 
             var nodes = new List<CommNet.CommNode> { fixedNode, primaryNearNode };
             var bodies = new List<CelestialBody> { Planetarium.fetch.Home };

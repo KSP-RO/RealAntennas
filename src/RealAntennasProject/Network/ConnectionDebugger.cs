@@ -2,7 +2,7 @@
 using UnityEngine;
 using Unity.Mathematics;
 using ClickThroughFix;
-
+using System.ComponentModel;
 
 namespace RealAntennas.Network
 {
@@ -72,7 +72,12 @@ namespace RealAntennas.Network
                         // Display Tx box
                         style.alignment = TextAnchor.UpperRight;
                         GUILayout.BeginVertical("Transmitter", style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
-                        GUILayout.Label($"Antenna: {data.tx.Name}");
+                        var txParentNode = data.tx.ParentNode as RACommNode;
+                        string txParentName =
+                            txParentNode?.ParentVessel?.GetDisplayName() ??
+                            txParentNode?.ParentBody?.GetDisplayName() ??
+                            "(null)";
+                        GUILayout.Label($"Antenna: {data.tx.Name} on {txParentName}");
                         GUILayout.Label($"Power: {data.txPower}dBm");
                         GUILayout.Label($"Target: {data.tx.Target}");
                         GUILayout.Label($"Position: {data.txPos.x:F0}, {data.txPos.y:F0}, {data.txPos.z:F0}");
@@ -81,7 +86,12 @@ namespace RealAntennas.Network
                         GUILayout.EndVertical();
                         // Display Rx box
                         GUILayout.BeginVertical("Receiver", style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
-                        GUILayout.Label($"Antenna: {data.rx.Name}");
+                        var rxParentNode = data.rx.ParentNode as RACommNode;
+                        string rxParentName =
+                            rxParentNode?.ParentVessel?.GetDisplayName() ??
+                            rxParentNode?.ParentBody?.GetDisplayName() ??
+                            "(null)";
+                        GUILayout.Label($"Antenna: {data.rx.Name} on {rxParentName}");
                         GUILayout.Label($"Received Power: {data.rxPower}dBm");
                         GUILayout.Label($"Target: {data.rx.Target}");
                         GUILayout.Label($"Position: {data.rxPos.x:F0}, {data.rxPos.y:F0}, {data.rxPos.z:F0}");

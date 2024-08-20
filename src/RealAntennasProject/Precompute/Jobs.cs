@@ -37,27 +37,31 @@ namespace RealAntennas.Precompute
         {
             int4 k = pairs[index];
             CNInfo rxNode = nodes[k.y];
-            AntennaData tx = antennas[k.z];
-            AntennaData rx = antennas[k.w];
             rxPrecalcNoise[index] = antennaNoise[k.w];
             rxSurfaceNormal[index] = rxNode.surfaceNormal;
-
-            txPower[index] = tx.txPower;
-            txFreq[index] = tx.freq;
-            txGain[index] = tx.gain;
-            txBeamwidth[index] = tx.beamwidth;
-            txInAtmosphere[index] = tx.inAtmosphere;
-            txPos[index] = tx.position;
-            txDir[index] = tx.isTracking ? (float3) (rx.position - tx.position) : tx.dir;
-
-            rxFreq[index] = rx.freq;
-            rxGain[index] = rx.gain;
-            rxBeamwidth[index] = rx.beamwidth;
-            txInAtmosphere[index] = rx.inAtmosphere;
-            rxTracking[index] = rx.isTracking;
-            rxPos[index] = rx.position;
-            rxDir[index] = rx.isTracking ? (float3) (tx.position - rx.position) : rx.dir;
-            rxAMW[index] = rx.AMW;
+            {
+                AntennaData tx = antennas[k.z];
+                txPower[index] = tx.txPower;
+                txFreq[index] = tx.freq;
+                txGain[index] = tx.gain;
+                txBeamwidth[index] = tx.beamwidth;
+                txInAtmosphere[index] = tx.inAtmosphere;
+                txPos[index] = tx.position;
+                AntennaData rx = antennas[k.w];
+                txDir[index] = tx.isTracking ? (float3) (rx.position - tx.position) : tx.dir;
+            }
+            {
+              AntennaData rx = antennas[k.w];
+              rxFreq[index] = rx.freq;
+              rxGain[index] = rx.gain;
+              rxBeamwidth[index] = rx.beamwidth;
+              rxInAtmosphere[index] = rx.inAtmosphere;
+              rxTracking[index] = rx.isTracking;
+              rxPos[index] = rx.position;
+              rxAMW[index] = rx.AMW;
+              AntennaData tx = antennas[k.z];
+              rxDir[index] = rx.isTracking ? (float3) (tx.position - rx.position) : rx.dir;
+            }
         }
     }
 

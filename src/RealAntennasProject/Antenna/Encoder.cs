@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace RealAntennas.Antenna
@@ -30,6 +31,10 @@ namespace RealAntennas.Antenna
 
         public Encoder BestMatching(in Encoder other) => TechLevel > other.TechLevel ? other : this;
         public static Encoder BestMatching(in Encoder a, in Encoder b) => a.BestMatching(b);
+        public static Encoder Get(string name, int level)
+        {
+            return string.IsNullOrEmpty(name) || !All.TryGetValue(name, out Encoder encoder) ? Encoder.GetFromTechLevel(level) : encoder;
+        }
         public static Encoder GetFromTechLevel(int level)
         {
             Encoder best = null;

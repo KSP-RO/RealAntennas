@@ -27,8 +27,9 @@ namespace RealAntennas
         public virtual double Bandwidth => DataRate;          // RF bandwidth required.
         public virtual float AMWTemp { get; set; }
         public virtual float Beamwidth => Physics.Beamwidth(Gain);
+        public string encoderOverride {  get; set; }
 
-        public Antenna.Encoder Encoder => Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level);
+        public Antenna.Encoder Encoder => Antenna.Encoder.Get(encoderOverride, TechLevelInfo.Level); 
         public virtual float RequiredCI => Encoder.RequiredEbN0;
 
         public ModuleRealAntenna Parent { get; internal set; }
@@ -96,6 +97,7 @@ namespace RealAntennas
             Parent = orig.Parent;
             ParentNode = orig.ParentNode;
             ParentSnapshot = orig.ParentSnapshot;
+            encoderOverride = orig.encoderOverride;
         }
 
         public virtual bool Compatible(RealAntenna other) => RFBand == other.RFBand;
@@ -119,6 +121,7 @@ namespace RealAntennas
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
             else if (Shape != AntennaShape.Omni && (ParentNode == null || !ParentNode.isHome) && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
                 Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
+            encoderOverride = (config.HasValue("encoderOverride")) ? config.GetValue("encoderOverride") : null;
         }
 
         public virtual void ProcessUpgrades(float tsLevel, ConfigNode node)
@@ -147,6 +150,7 @@ namespace RealAntennas
             if (config.TryGetValue("SymbolRate", ref d)) SymbolRate = d;
             if (config.TryGetValue("AMWTemp", ref f)) AMWTemp = f;
             if (config.TryGetValue("RFBand", ref s)) RFBand = Antenna.BandInfo.All[s];
+            if (config.TryGetValue("encoderOverride", ref s)) encoderOverride = s;
         }
 
         public virtual ConfigNode SetDefaultTarget()

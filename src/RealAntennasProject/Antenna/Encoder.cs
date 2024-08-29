@@ -31,9 +31,9 @@ namespace RealAntennas.Antenna
 
         public Encoder BestMatching(in Encoder other) => TechLevel > other.TechLevel ? other : this;
         public static Encoder BestMatching(in Encoder a, in Encoder b) => a.BestMatching(b);
-        public static Encoder Get(string name, int level)
+        public static Encoder GetFromName(string name)
         {
-            return string.IsNullOrEmpty(name) || !All.TryGetValue(name, out Encoder encoder) ? Encoder.GetFromTechLevel(level) : encoder;
+            return !string.IsNullOrEmpty(name) ? All[name] : null;
         }
         public static Encoder GetFromTechLevel(int level)
         {

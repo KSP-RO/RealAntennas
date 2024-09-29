@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace RealAntennas.MapUI
 {
-    class GroundStationSiteNode : ISiteNode
+    public class GroundStationSiteNode : ISiteNode
     {
-        RACommNode node;
+        public readonly RACommNode node;
 
         public GroundStationSiteNode(RACommNode node)
         {
@@ -17,7 +17,7 @@ namespace RealAntennas.MapUI
 
         public void UpdateNodeCaption(MapNode mn, MapNode.CaptionData data)
         {
-            data.captionLine1 = $"{node.name}";
+            data.captionLine1 = $"{node.displayName}";
             data.captionLine2 = RATools.PrettyPrint(node.RAAntennaList);
             //data.captionLine3 = "CapLine3";
         }

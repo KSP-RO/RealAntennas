@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
+using ClickThroughFix;
+using System.ComponentModel;
 using KSP.Localization;
-
 
 namespace RealAntennas.Network
 {
@@ -35,7 +36,7 @@ namespace RealAntennas.Network
             if (showUI)
             {
                 GUI.skin = HighLogic.Skin;
-                Window = GUILayout.Window(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window);
+                Window = ClickThruBlocker.GUILayoutWindow(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window);
             }
         }
         private void GUIDisplay(int windowID)
@@ -71,21 +72,31 @@ namespace RealAntennas.Network
 
                         // Display Tx box
                         style.alignment = TextAnchor.UpperRight;
-                        GUILayout.BeginVertical(Local.CDB_Transmitter, style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));  // Transmitter
-                        GUILayout.Label($"{Local.Gerneric_Antenna}: {data.tx.Name}");  // Antenna
-                        GUILayout.Label($"{Local.Gerneric_Power}: {data.txPower}dBm"); // Power
-                        GUILayout.Label($"{Local.Gerneric_Target}: {data.tx.Target}"); // Target
-                        GUILayout.Label($"{Local.Gerneric_Position}: {data.txPos.x:F0}, {data.txPos.y:F0}, {data.txPos.z:F0}"); // Position
-                        GUILayout.Label($"{Local.Gerneric_Beamwidth}: {data.txBeamwidth:F2}");  // Beamwidth (3dB full-width)
-                        GUILayout.Label($"{Local.Gerneric_AntennaAoA}: {data.txToRxAngle:F1}");  // Antenna AoA
+                        GUILayout.BeginVertical("Transmitter", style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
+                        var txParentNode = data.tx.ParentNode as RACommNode;
+                        string txParentName =
+                            txParentNode?.ParentVessel?.GetDisplayName() ??
+                            txParentNode?.ParentBody?.GetDisplayName() ??
+                            "(null)";
+                        GUILayout.Label($"Antenna: {data.tx.Name} on {txParentName}");
+                        GUILayout.Label($"Power: {data.txPower}dBm");
+                        GUILayout.Label($"Target: {data.tx.Target}");
+                        GUILayout.Label($"Position: {data.txPos.x:F0}, {data.txPos.y:F0}, {data.txPos.z:F0}");
+                        GUILayout.Label($"Beamwidth (3dB full-width): {data.txBeamwidth:F2}");
+                        GUILayout.Label($"Antenna AoA: {data.txToRxAngle:F1}");
                         GUILayout.EndVertical();
                         // Display Rx box
-                        GUILayout.BeginVertical(Local.CDB_Receiver, style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));  // "Receiver"
-                        GUILayout.Label($"{Local.Gerneric_Antenna}: {data.rx.Name}");  //Antenna
-                        GUILayout.Label($"{Local.Gerneric_ReceivedPower}: {data.rxPower}dBm");  // Received Power
-                        GUILayout.Label($"{Local.Gerneric_Target}: {data.rx.Target}");  // Target
-                        GUILayout.Label($"{Local.Gerneric_Position}: {data.rxPos.x:F0}, {data.rxPos.y:F0}, {data.rxPos.z:F0}");  // Position
-                        GUILayout.Label($"{Local.Gerneric_Beamwidth}: {data.rxBeamwidth:F2}");  // Beamwidth (3dB full-width)
+                        GUILayout.BeginVertical("Receiver", style, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
+                        var rxParentNode = data.rx.ParentNode as RACommNode;
+                        string rxParentName =
+                            rxParentNode?.ParentVessel?.GetDisplayName() ??
+                            rxParentNode?.ParentBody?.GetDisplayName() ??
+                            "(null)";
+                        GUILayout.Label($"Antenna: {data.rx.Name} on {rxParentName}");
+                        GUILayout.Label($"Received Power: {data.rxPower}dBm");
+                        GUILayout.Label($"Target: {data.rx.Target}");
+                        GUILayout.Label($"Position: {data.rxPos.x:F0}, {data.rxPos.y:F0}, {data.rxPos.z:F0}");
+                        GUILayout.Label($"Beamwidth (3dB full-width): {data.rxBeamwidth:F2}");
                         GUILayout.BeginHorizontal();
                         GUILayout.Label($"{Local.Gerneric_AntennaAoA}: {data.rxToTxAngle:F1}");  // Antenna AoA
                         GUILayout.Space(20);
@@ -109,7 +120,7 @@ namespace RealAntennas.Network
                         GUILayout.BeginHorizontal();
                         GUILayout.Label($"{Local.CDB_TotalNoise}: {data.noise:F2}K");  // Total Noise
                         GUILayout.Space(20);
-                        GUILayout.Label($"N0: {data.N0:F2}dB/Hz");
+                        GUILayout.Label($"N0: {data.N0:F2}dBm/Hz");
                         GUILayout.EndHorizontal();
                         GUILayout.EndVertical();
 

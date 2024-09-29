@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ClickThroughFix;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -273,7 +274,7 @@ namespace RealAntennas
                 }
                 foreach (Network.RACommNetHome home in homes)
                     foreach (RealAntenna ra in home.Comm.RAAntennaList)
-                        if (GUILayout.Button($"{home.nodeName} {ra.ToStringShort()}", buttonStyle))
+                        if (peer.Compatible(ra) && GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
                         {
                             antenna = ra;
                             res = true;
@@ -373,9 +374,9 @@ namespace RealAntennas
             primaryFarNode.precisePosition = primaryFarNode.position;
             fixedNode.isHome = fixedAntenna.ParentNode?.isHome ?? false;
             primaryNearNode.isHome = primaryFarNode.isHome = primaryAntenna.ParentNode?.isHome ?? false;
-            primaryNearNode.ParentBody = primaryNearNode.isHome ? home : null;
-            primaryFarNode.ParentBody = primaryFarNode.isHome ? home : null;
-            fixedNode.ParentBody = fixedNode.isHome ? home : null;
+            primaryNearNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
+            primaryFarNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
+            fixedNode.ParentBody = (fixedAntenna.ParentNode as RACommNode)?.ParentBody;
 
             var nodes = new List<CommNet.CommNode> { fixedNode, primaryNearNode };
             var bodies = new List<CelestialBody> { Planetarium.fetch.Home };

@@ -250,7 +250,7 @@ namespace RealAntennas
 
         public void CheckNodeConsistency()
         {
-            foreach (var home in GameObject.FindObjectsOfType<Network.RACommNetHome>())
+            foreach (var home in RACommNetScenario.EnabledStations)
             {
                 home.CheckNodeConsistency();
             }

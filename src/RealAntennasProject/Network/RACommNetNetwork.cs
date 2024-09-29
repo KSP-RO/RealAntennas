@@ -57,7 +57,7 @@ namespace RealAntennas.Network
             ResetNetwork();
         }
 
-        protected new void ResetNetwork()
+        internal new void ResetNetwork()
         {
             Debug.Log($"{ModTag} ResetNetwork()");
 

@@ -8,7 +8,7 @@ namespace RealAntennas
         public double SymbolRate => Parent.SymbolRate;      // Samples / sec.
         public int ModulationBits { get; set; }     // Bits / symbol (1=BPSK, 2=QPSK, 3=8-PSK, 4=16-QAM,...
         public TechLevelInfo TechLevel => Parent.TechLevelInfo;
-        public double DataRate => SymbolRate * ModulationBits;       // Data Rate in bits/sec.
+        public double DataRate => SymbolRate * Math.Pow(2, ModulationBits-1);       // Data Rate in bits/sec.
         public int SymbolSteps => (2 * TechLevel.Level) + 3;
         public double MinSymbolRate => SymbolRate / Math.Pow(2, SymbolSteps);
 

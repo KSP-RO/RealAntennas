@@ -1,7 +1,10 @@
 ﻿using CommNet;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UniLinq;
 using UnityEngine;
+using Upgradeables;
 
 namespace RealAntennas
 {
@@ -21,6 +24,7 @@ namespace RealAntennas
         public static int MaxTL => Mathf.Min(TechLevelInfo.MaxTL, HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel);
         public static int minRelayTL = 0;
 
+        public static IEnumerable<Network.RACommNetHome> EnabledStations => GroundStations.Values.Where(x => x.enabled);
         public Network.RACommNetNetwork Network { get; private set; } = null;
         public MapUI.RACommNetUI UI { get; private set; } = null;
         public MapUI.Settings MapSettings { get; private set; } = null;
@@ -40,6 +44,7 @@ namespace RealAntennas
 
                 ApplyGameSettings();
                 GameEvents.OnGameSettingsApplied.Add(ApplyGameSettings);
+                GameEvents.OnKSCFacilityUpgraded.Add(OnKSCFacilityUpgraded);
             }
             else StartCoroutine(NotifyDisabled());
         }
@@ -66,6 +71,18 @@ namespace RealAntennas
             if (gameNode.HasNode("MapUISettings"))
                 ConfigNode.LoadObjectFromConfig(MapSettings, gameNode.GetNode("MapUISettings"));
             Targeting.TextureTools.Load(gameNode);
+
+            ConfigNode homeState = null;
+            if (gameNode.TryGetNode("HomeState", ref homeState))
+            {
+                foreach (ConfigNode.Value v in homeState.values)
+                {
+                    if (GroundStations.TryGetValue(v.name, out Network.RACommNetHome home))
+                    {
+                        home.enabled = bool.Parse(v.value);
+                    }
+                }
+            }
         }
 
         public override void OnSave(ConfigNode gameNode)
@@ -75,6 +92,13 @@ namespace RealAntennas
             node.name = "MapUISettings";
             gameNode.AddNode(node);
             Targeting.TextureTools.Save(gameNode);
+
+            node = new ConfigNode("HomeState");
+            foreach (Network.RACommNetHome home in GroundStations.Values)
+            {
+                node.AddValue(home.nodeName, home.enabled);
+            }
+            gameNode.AddNode(node);
         }
 
         private System.Collections.IEnumerator NotifyDisabled()
@@ -93,7 +117,9 @@ namespace RealAntennas
         {
             if (Network) Destroy(Network);
             if (UI) Destroy(UI);
+            HomeNodeTypes.Destroy();
             GameEvents.OnGameSettingsApplied.Remove(ApplyGameSettings);
+            GameEvents.OnKSCFacilityUpgraded.Remove(OnKSCFacilityUpgraded);
         }
 
         public void RebuildHomes()
@@ -114,6 +140,23 @@ namespace RealAntennas
             debugWalkInterval = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().debugWalkInterval;
         }
 
+        private void OnKSCFacilityUpgraded(UpgradeableFacility facility, int lvl)
+        {
+            string tsFacId = ScenarioUpgradeableFacilities.SlashSanitize(nameof(SpaceCenterFacility.TrackingStation));
+            if (string.Equals(facility.id, tsFacId, StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyTSLevelChange();
+            }
+        }
+
+        private void ApplyTSLevelChange()
+        {
+            Debug.LogFormat($"{ModTag} Applying TS level change");
+            float fTSLvl = ScenarioUpgradeableFacilities.GetFacilityLevel(SpaceCenterFacility.TrackingStation);
+            GroundStationTechLevel = Mathf.RoundToInt(MaxTL * (HighLogic.CurrentGame.Mode == Game.Modes.CAREER ? fTSLvl : 1));
+            Network.ResetNetwork();
+        }
+
         private void Initialize()
         {
             if (!staticInit && GameDatabase.Instance.GetConfigNode("RealAntennas/RealAntennasCommNetParams/RealAntennasCommNetParams") is ConfigNode RAParamNode)
@@ -122,6 +165,7 @@ namespace RealAntennas
                 Antenna.Encoder.Init(RAParamNode);
                 TechLevelInfo.Init(RAParamNode);
                 Targeting.TargetModeInfo.Init(RAParamNode);
+                HomeNodeTypes.Init(RAParamNode);
                 RAParamNode.TryGetValue("minRelayTL", ref minRelayTL);
                 staticInit = true;
             }
@@ -160,6 +204,7 @@ namespace RealAntennas
                         }
                     }
                 }
+                HomeNodeTypes.RebuildHomesDict(GroundStations);
                 Debug.Log(sb.ToStringAndRelease());
             }
         }

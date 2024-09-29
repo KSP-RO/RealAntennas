@@ -13,7 +13,8 @@ namespace RealAntennas.Precompute
         internal float freq;
         internal float gain;
         internal float beamwidth;
-        internal bool isHome;
+        internal bool inAtmosphere;
+        internal bool isTracking;
         internal double3 position;
         internal float3 dir;
         internal float AMW;
@@ -75,14 +76,15 @@ namespace RealAntennas.Precompute
         private NativeArray<float> txFreq;
         private NativeArray<float> txGain;
         private NativeArray<float> txBeamwidth;
-        private NativeArray<bool> txHome;
+        private NativeArray<bool> txInAtmosphere;
         private NativeArray<double3> txPos;
         private NativeArray<float3> txDir;
 
         private NativeArray<float> rxFreq;
         private NativeArray<float> rxGain;
         private NativeArray<float> rxBeamwidth;
-        private NativeArray<bool> rxHome;
+        private NativeArray<bool> rxInAtmosphere;
+        private NativeArray<bool> rxTracking;
         private NativeArray<double3> rxPos;
         private NativeArray<float3> rxDir;
         private NativeArray<float> rxAMW;
@@ -221,14 +223,15 @@ namespace RealAntennas.Precompute
             txFreq = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
             txGain = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
             txBeamwidth = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
-            txHome = new NativeArray<bool>(allAntennaPairs.Length, Allocator.TempJob);
+            txInAtmosphere = new NativeArray<bool>(allAntennaPairs.Length, Allocator.TempJob);
             txPos = new NativeArray<double3>(allAntennaPairs.Length, Allocator.TempJob);
             txDir = new NativeArray<float3>(allAntennaPairs.Length, Allocator.TempJob);
 
             rxFreq = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
             rxGain = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
             rxBeamwidth = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
-            rxHome = new NativeArray<bool>(allAntennaPairs.Length, Allocator.TempJob);
+            rxInAtmosphere = new NativeArray<bool>(allAntennaPairs.Length, Allocator.TempJob);
+            rxTracking = new NativeArray<bool>(allAntennaPairs.Length, Allocator.TempJob);
             rxPos = new NativeArray<double3>(allAntennaPairs.Length, Allocator.TempJob);
             rxDir = new NativeArray<float3>(allAntennaPairs.Length, Allocator.TempJob);
             rxAMW = new NativeArray<float>(allAntennaPairs.Length, Allocator.TempJob);
@@ -249,8 +252,9 @@ namespace RealAntennas.Precompute
                 rxGain = rxGain,
                 txBeamwidth = txBeamwidth,
                 rxBeamwidth = rxBeamwidth,
-                txHome = txHome,
-                rxHome = rxHome,
+                txInAtmosphere = txInAtmosphere,
+                rxInAtmosphere = rxInAtmosphere,
+                rxTracking = rxTracking,
                 txFreq = txFreq,
                 rxFreq = rxFreq,
                 txPower = txPower,
@@ -324,7 +328,7 @@ namespace RealAntennas.Precompute
             {
                 occluders = occluders,
                 rxPrecalcNoise = rxPrecalcNoise,
-                rxHome = rxHome,
+                rxTracking = rxTracking,
                 rxPos = rxPos,
                 rxGain = rxGain,
                 rxBeamwidth = rxBeamwidth,
@@ -340,7 +344,7 @@ namespace RealAntennas.Precompute
                 txPos = txPos,
                 rxPos = rxPos,
                 rxFreq = rxFreq,
-                rxHome = rxHome,
+                rxInAtmosphere = rxInAtmosphere,
                 rxSurfaceNormal = rxSurfaceNormal,
                 atmoNoise = atmosphereNoise,
                 elevation = antennaElevation,
@@ -611,14 +615,15 @@ namespace RealAntennas.Precompute
             txFreq.Dispose();
             txGain.Dispose();
             txBeamwidth.Dispose();
-            txHome.Dispose();
+            txInAtmosphere.Dispose();
             txPos.Dispose();
             txDir.Dispose();
 
             rxFreq.Dispose();
             rxGain.Dispose();
             rxBeamwidth.Dispose();
-            rxHome.Dispose();
+            rxInAtmosphere.Dispose();
+            rxTracking.Dispose();
             rxPos.Dispose();
             rxDir.Dispose();
             rxAMW.Dispose();
@@ -727,7 +732,12 @@ namespace RealAntennas.Precompute
                             freq = ra.Frequency,
                             gain = ra.Gain,
                             beamwidth = ra.Beamwidth,
-                            isHome = node.isHome,
+                            // TODO(egg): We could also say apply that to a
+                            // ParentVessel deep enough in the atmosphere.
+                            // It might make sense to take the altitude into
+                            // account eventually.
+                            inAtmosphere = node.ParentBody != null,
+                            isTracking = ra.IsTracking,
                             AMW = Physics.AntennaMicrowaveTemp(ra),
                             encoder = new Encoder(ra.Encoder),
                             maxSymbolRate = Convert.ToSingle(ra.SymbolRate),

@@ -28,7 +28,7 @@ namespace RealAntennas
         public virtual float AMWTemp { get; set; }
         public virtual float Beamwidth => Physics.Beamwidth(Gain);
 
-        public Antenna.Encoder Encoder => Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level); 
+        public Antenna.Encoder Encoder => Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level);
         public virtual float RequiredCI => Encoder.RequiredEbN0;
 
         public ModuleRealAntenna Parent { get; internal set; }
@@ -38,7 +38,10 @@ namespace RealAntennas
         public Vector3d PrecisePosition => ParentNode.precisePosition;
         public Vector3d TransformPosition => ParentNode.position;
         public virtual AntennaShape Shape => Gain <= Physics.MaxOmniGain ? AntennaShape.Omni : AntennaShape.Dish;
-        public virtual bool CanTarget => Shape != AntennaShape.Omni && (ParentNode == null || !ParentNode.isHome);
+        // Whether the antenna is a dish considered to be tracking everything at
+        // once. This is typically used for ground stations.
+        public bool IsTracking => Shape != AntennaShape.Omni && Target == null;
+        public virtual bool CanTarget => Shape != AntennaShape.Omni && !IsTracking;
         public Vector3 ToTarget => (CanTarget && Target != null) ? (Vector3) (Target.transform.position - Position) : Vector3.zero;
 
         private Targeting.AntennaTarget _target;
@@ -114,7 +117,7 @@ namespace RealAntennas
             AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
             if (config.HasNode("TARGET"))
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
-            if (CanTarget && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
+            else if (Shape != AntennaShape.Omni && (ParentNode == null || !ParentNode.isHome) && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
                 Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
         }
 

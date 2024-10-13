@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using UnityEngine;
 
@@ -9,10 +10,10 @@ namespace RealAntennas
     [Flags]
     public enum AntennaCondition
     {
-        Enabled = 1 << 0,
-        Disabled = 1 << 1,
-        PermanentShutdown = 1 << 2,
-        Broken = 1 << 3
+        [Description("Enabled")] Enabled = 1 << 0,
+        [Description("Disabled")] Disabled = 1 << 1,
+        [Description("Permanently shutdown")] PermanentShutdown = 1 << 2,
+        [Description("Broken")] Broken = 1 << 3
     }
 
     public class ModuleRealAntenna : ModuleDataTransmitter, IPartCostModifier, IPartMassModifier

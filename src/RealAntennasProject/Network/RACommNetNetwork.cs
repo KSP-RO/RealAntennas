@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using CommNet;
+using UnityEngine.Profiling;
 
 namespace RealAntennas.Network
 {
@@ -79,6 +80,7 @@ namespace RealAntennas.Network
 
         protected virtual void UpdateEarly()
         {
+            Profiler.BeginSample("RA UpdateEarly");
             var RACN = commNet as RACommNetwork;
             if (requestInit)
             {
@@ -98,6 +100,7 @@ namespace RealAntennas.Network
                 prevUpdate = tm;
                 graphDirty = queueRebuild = false;
             }
+            Profiler.EndSample();
         }
 
         protected override void OnDestroy()

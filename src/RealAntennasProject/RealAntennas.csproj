@@ -94,6 +94,7 @@
     <Reference Include="Assembly-CSharp" />
     <Reference Include="Assembly-CSharp-firstpass" />
     <Reference Include="ClickThroughBlocker" />
+    <Reference Include="KSPCommunityFixes" />
     <Reference Include="System" />
     <Reference Include="Unity.Burst" />
     <Reference Include="Unity.Collections" />

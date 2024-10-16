@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KSPCommunityFixes;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -173,7 +174,7 @@ namespace RealAntennas
                 Events[nameof(AntennaTargetGUI)].active = false;
             }
 
-            deployableAntenna = part.FindModuleImplementing<ModuleDeployableAntenna>();
+            deployableAntenna = part.FindModuleImplementingFast<ModuleDeployableAntenna>();
 
             ApplyGameSettings();
             SetupUICallbacks();

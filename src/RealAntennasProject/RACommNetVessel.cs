@@ -1,8 +1,10 @@
 ﻿using Expansions.Serenity.DeployedScience.Runtime;
 using Experience.Effects;
+using KSPCommunityFixes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.Profiling;
 
 namespace RealAntennas
 {
@@ -124,40 +126,51 @@ namespace RealAntennas
 
         private void DetermineControlUnloaded()
         {
+            Profiler.BeginSample("DetermineControlUnloaded");
             int numControl = CountControllingCrew();
             int index = 0;
             foreach (ProtoPartSnapshot protoPartSnapshot in vessel.protoVessel.protoPartSnapshots)
             {
                 index++;
                 Part part = protoPartSnapshot.partInfo.partPrefab;
-                foreach (PartModule module in part.Modules)
+                if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
+                    pcp.CanControlUnloaded(protoPartSnapshot.FindModule(pcp, index)))
                 {
-                    if ((module is CommNet.ModuleProbeControlPoint probeControlPoint) && probeControlPoint.CanControlUnloaded(protoPartSnapshot.FindModule(module, index)))
-                    {
-                        if (numControl >= probeControlPoint.minimumCrew || probeControlPoint.minimumCrew <= 0)
-                            comm.isControlSource = true;
-                        if (probeControlPoint.multiHop)
-                            comm.isControlSourceMultiHop = true;
-                    }
+                    if (numControl >= pcp.minimumCrew || pcp.minimumCrew <= 0)
+                        comm.isControlSource = true;
+                    if (pcp.multiHop)
+                        comm.isControlSourceMultiHop = true;
+
+                    // Assume that control parts are closer to root than leaf nodes.
+                    // If both fields are true then no point in looking any further.
+                    if (comm.isControlSource && comm.isControlSourceMultiHop)
+                        break;
                 }
             }
+            Profiler.EndSample();
         }
+
         private void DetermineControlLoaded()
         {
+            Profiler.BeginSample("DetermineControlLoaded");
             int numControl = CountControllingCrew();
             foreach (Part part in vessel.Parts)
             {
-                foreach (PartModule module in part.Modules)
+                if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
+                    pcp.CanControl())
                 {
-                    if ((module is CommNet.ModuleProbeControlPoint probeControlPoint) && probeControlPoint.CanControl())
-                    {
-                        if (numControl >= probeControlPoint.minimumCrew || probeControlPoint.minimumCrew <= 0)
-                            comm.isControlSource = true;
-                        if (probeControlPoint.multiHop)
-                            comm.isControlSourceMultiHop = true;
-                    }
+                    if (numControl >= pcp.minimumCrew || pcp.minimumCrew <= 0)
+                        comm.isControlSource = true;
+                    if (pcp.multiHop)
+                        comm.isControlSourceMultiHop = true;
+
+                    // Assume that control parts are closer to root than leaf nodes.
+                    // If both fields are true then no point in looking any further.
+                    if (comm.isControlSource && comm.isControlSourceMultiHop)
+                        break;
                 }
             }
+            Profiler.EndSample();
         }
 
         protected void OnVesselModified(Vessel data)
@@ -173,14 +186,18 @@ namespace RealAntennas
             if (Vessel == null) return antennaList;
             if (Vessel.loaded)
             {
-                foreach (ModuleRealAntenna ant in Vessel.FindPartModulesImplementing<ModuleRealAntenna>().ToList())
+                foreach (Part part in vessel.parts)
                 {
-                    if (ant.Condition == AntennaCondition.Enabled)
+                    var moduleList = part.FindModulesImplementingReadOnly<ModuleRealAntenna>();
+                    foreach (ModuleRealAntenna ant in moduleList)
                     {
-                        ant.RAAntenna.ParentNode = Comm;
-                        if (DeployedLoaded(ant.part)) antennaList.Add(ant.RAAntenna);
-                        else inactiveAntennas.Add(ant.RAAntenna);
-                        ValidateAntennaTarget(ant.RAAntenna);
+                        if (ant.Condition == AntennaCondition.Enabled)
+                        {
+                            ant.RAAntenna.ParentNode = Comm;
+                            if (DeployedLoaded(ant.part)) antennaList.Add(ant.RAAntenna);
+                            else inactiveAntennas.Add(ant.RAAntenna);
+                            ValidateAntennaTarget(ant.RAAntenna);
+                        }
                     }
                 }
                 return antennaList;
@@ -197,7 +214,8 @@ namespace RealAntennas
                             _enabled = sState == AntennaCondition.Enabled.ToString();
 
                         // Doesn't get the correct PartModule if multiple, but the only impact is the name, which defaults to the part anyway.
-                        if (_enabled && part.partInfo.partPrefab.FindModuleImplementing<ModuleRealAntenna>() is ModuleRealAntenna mra && mra.CanCommUnloaded(snap))
+                        if (_enabled && part.partInfo.partPrefab.FindModuleImplementingFast<ModuleRealAntenna>() is ModuleRealAntenna mra &&
+                            mra.CanCommUnloaded(snap))
                         {
                             RealAntenna ra = new RealAntennaDigital(part.partPrefab.partInfo.title) { ParentNode = Comm, ParentSnapshot = snap };
                             ra.LoadFromConfigNode(snap.moduleValues);
@@ -226,7 +244,7 @@ namespace RealAntennas
             return true;
         }
         public static bool DeployedLoaded(Part part) =>
-            (part.FindModuleImplementing<ModuleDeployableAntenna>() is ModuleDeployableAntenna mda) ?
+            (part.FindModuleImplementingFast<ModuleDeployableAntenna>() is ModuleDeployableAntenna mda) ?
             mda.deployState == ModuleDeployablePart.DeployState.EXTENDED : true;
 
         private bool IsDeployedScienceCluster(Vessel v) => GetDeployedScienceCluster(v) != null;

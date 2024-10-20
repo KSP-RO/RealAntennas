@@ -77,11 +77,16 @@ namespace RealAntennas
                 GameEvents.CommNet.OnNetworkInitialized.Add(OnNetworkInitialized);
                 if (HighLogic.LoadedScene == GameScenes.TRACKSTATION)
                     GameEvents.onPlanetariumTargetChanged.Add(OnMapFocusChange);
-                foreach (ModuleDeployablePart mdp in Vessel.FindPartModulesImplementing<ModuleDeployablePart>())
+                foreach (Part p in vessel.parts)
                 {
-                    mdp.OnMoving.Add(OnMoving);
-                    mdp.OnStop.Add(OnStop);
+                    List<PartModule> modules = p.FindModulesImplementingReadOnly<ModuleDeployablePart>();
+                    foreach (ModuleDeployablePart mdp in modules)
+                    {
+                        mdp.OnMoving.Add(OnMoving);
+                        mdp.OnStop.Add(OnStop);
+                    }
                 }
+
                 overridePostUpdate = true;
                 electricChargeDef = PartResourceLibrary.Instance.GetDefinition("ElectricCharge");
             }

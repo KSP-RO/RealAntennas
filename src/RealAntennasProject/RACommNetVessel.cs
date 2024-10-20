@@ -13,11 +13,13 @@ namespace RealAntennas
         protected const string ModTag = "[RealAntennasCommNetVessel]";
         readonly List<RealAntenna> antennaList = new List<RealAntenna>();
         readonly List<RealAntenna> inactiveAntennas = new List<RealAntenna>();
+        readonly List<CommNet.ModuleProbeControlPoint> probeControlPoints = new List<CommNet.ModuleProbeControlPoint>();
         private PartResourceDefinition electricChargeDef;
-        public override IScienceDataTransmitter GetBestTransmitter() =>
-            (IsConnected && Comm is RACommNode node && node.AntennaTowardsHome() is RealAntenna toHome) ? toHome.Parent : null;
 
         [KSPField(isPersistant = true)] public bool powered = true;
+
+        public override IScienceDataTransmitter GetBestTransmitter() =>
+            (IsConnected && Comm is RACommNode node && node.AntennaTowardsHome() is RealAntenna toHome) ? toHome.Parent : null;
 
         public override void OnNetworkPreUpdate()
         {
@@ -67,6 +69,7 @@ namespace RealAntennas
                     ParentVessel = Vessel,
                 };
                 (comm as RACommNode).RAAntennaList = DiscoverAntennas();
+                DiscoverProbeControlPoints();
                 vessel.connection = this;
                 networkInitialised = false;
                 if (CommNet.CommNetNetwork.Initialized)
@@ -74,7 +77,6 @@ namespace RealAntennas
                 GameEvents.CommNet.OnNetworkInitialized.Add(OnNetworkInitialized);
                 if (HighLogic.LoadedScene == GameScenes.TRACKSTATION)
                     GameEvents.onPlanetariumTargetChanged.Add(OnMapFocusChange);
-                GameEvents.onVesselWasModified.Add(OnVesselModified);
                 foreach (ModuleDeployablePart mdp in Vessel.FindPartModulesImplementing<ModuleDeployablePart>())
                 {
                     mdp.OnMoving.Add(OnMoving);
@@ -85,12 +87,32 @@ namespace RealAntennas
             }
         }
 
+        protected override void Update()
+        {
+            if (vessel.loaded)
+            {
+                int count = vessel.Parts.Count;
+                if (count != partCountCache)
+                {
+                    partCountCache = count;
+                    Profiler.BeginSample("RA DiscoverPartModules");
+                    FindCommandSources();
+                    if (Comm is RACommNode)
+                    {
+                        DiscoverAntennas();
+                    }
+                    DiscoverProbeControlPoints();
+                    Profiler.EndSample();
+                }
+                UpdateControlState();
+            }
+        }
+
         private void OnMoving(float f1, float f2) => DiscoverAntennas();
         private void OnStop(float f1) => DiscoverAntennas();
 
         protected override void OnDestroy()
         {
-            GameEvents.onVesselWasModified.Remove(OnVesselModified);
             GameEvents.CommNet.OnNetworkInitialized.Remove(OnNetworkInitialized);
             GameEvents.onPlanetariumTargetChanged.Remove(OnMapFocusChange);
             base.OnDestroy();
@@ -101,15 +123,46 @@ namespace RealAntennas
 
         protected override void UpdateComm()
         {
-            if (comm is RACommNode)
+            if (comm is RACommNode raComm)
             {
-                comm.name = gameObject.name;
-                comm.displayName = vessel.GetDisplayName();
-                comm.isControlSource = false;
-                comm.isControlSourceMultiHop = false;
-                comm.antennaRelay.power = comm.antennaTransmit.power = 0.0;
-                hasScienceAntenna = (comm as RACommNode).RAAntennaList.Count > 0;
-                if (vessel.loaded) DetermineControlLoaded(); else DetermineControlUnloaded();
+                raComm.name = gameObject.name;
+                raComm.displayName = vessel.GetDisplayName();
+                raComm.isControlSource = false;
+                raComm.isControlSourceMultiHop = false;
+                raComm.antennaRelay.power = raComm.antennaTransmit.power = 0.0;
+                hasScienceAntenna = raComm.RAAntennaList.Count > 0;
+                DetermineControl();
+            }
+        }
+
+        private void DiscoverProbeControlPoints()
+        {
+            probeControlPoints.Clear();
+
+            if (vessel.loaded)
+            {
+                foreach (Part part in vessel.Parts)
+                {
+                    if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
+                        pcp.CanControl())
+                    {
+                        probeControlPoints.Add(pcp);
+                    }
+                }
+            }
+            else
+            {
+                int index = 0;
+                foreach (ProtoPartSnapshot protoPartSnapshot in vessel.protoVessel.protoPartSnapshots)
+                {
+                    index++;
+                    Part part = protoPartSnapshot.partInfo.partPrefab;
+                    if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
+                        pcp.CanControlUnloaded(protoPartSnapshot.FindModule(pcp, index)))
+                    {
+                        probeControlPoints.Add(pcp);
+                    }
+                }
             }
         }
 
@@ -124,58 +177,25 @@ namespace RealAntennas
             return numControl;
         }
 
-        private void DetermineControlUnloaded()
+        private void DetermineControl()
         {
-            Profiler.BeginSample("DetermineControlUnloaded");
-            int numControl = CountControllingCrew();
-            int index = 0;
-            foreach (ProtoPartSnapshot protoPartSnapshot in vessel.protoVessel.protoPartSnapshots)
-            {
-                index++;
-                Part part = protoPartSnapshot.partInfo.partPrefab;
-                if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
-                    pcp.CanControlUnloaded(protoPartSnapshot.FindModule(pcp, index)))
-                {
-                    if (numControl >= pcp.minimumCrew || pcp.minimumCrew <= 0)
-                        comm.isControlSource = true;
-                    if (pcp.multiHop)
-                        comm.isControlSourceMultiHop = true;
+            if (probeControlPoints.Count == 0) return;
 
-                    // Assume that control parts are closer to root than leaf nodes.
-                    // If both fields are true then no point in looking any further.
-                    if (comm.isControlSource && comm.isControlSourceMultiHop)
-                        break;
-                }
+            Profiler.BeginSample("RA DetermineControl");
+            int numControl = CountControllingCrew();
+            foreach (CommNet.ModuleProbeControlPoint pcp in probeControlPoints)
+            {
+                if (numControl >= pcp.minimumCrew || pcp.minimumCrew <= 0)
+                    comm.isControlSource = true;
+                if (pcp.multiHop)
+                    comm.isControlSourceMultiHop = true;
+
+                // Assume that control parts are closer to root than leaf nodes.
+                // If both fields are true then no point in looking any further.
+                if (comm.isControlSource && comm.isControlSourceMultiHop)
+                    break;
             }
             Profiler.EndSample();
-        }
-
-        private void DetermineControlLoaded()
-        {
-            Profiler.BeginSample("DetermineControlLoaded");
-            int numControl = CountControllingCrew();
-            foreach (Part part in vessel.Parts)
-            {
-                if (part.FindModuleImplementingFast<CommNet.ModuleProbeControlPoint>() is CommNet.ModuleProbeControlPoint pcp &&
-                    pcp.CanControl())
-                {
-                    if (numControl >= pcp.minimumCrew || pcp.minimumCrew <= 0)
-                        comm.isControlSource = true;
-                    if (pcp.multiHop)
-                        comm.isControlSourceMultiHop = true;
-
-                    // Assume that control parts are closer to root than leaf nodes.
-                    // If both fields are true then no point in looking any further.
-                    if (comm.isControlSource && comm.isControlSourceMultiHop)
-                        break;
-                }
-            }
-            Profiler.EndSample();
-        }
-
-        protected void OnVesselModified(Vessel data)
-        {
-            if (this != null && data == Vessel && Comm is RACommNode) DiscoverAntennas();
         }
 
         protected List<RealAntenna> DiscoverAntennas()
@@ -202,6 +222,7 @@ namespace RealAntennas
                 }
                 return antennaList;
             }
+
             if (Vessel.protoVessel != null)
             {
                 foreach (ProtoPartSnapshot part in Vessel.protoVessel.protoPartSnapshots)

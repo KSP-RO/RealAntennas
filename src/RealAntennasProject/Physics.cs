@@ -64,19 +64,19 @@ namespace RealAntennas
         {
             float norm = Convert.ToSingle(angle / beamwidth);
             if (norm > 1) return MaxPointingLoss;
-            if (norm < 0.14f) return math.lerp(0, 0.25f, norm / 0.14f);
-            else if (norm < 0.2f) return math.lerp(0.25f, 0.5f, (norm - 0.14f) / 0.2f);
-            else if (norm < 0.29f) return math.lerp(0.5f, 1, (norm - 0.2f) / 0.29f);
-            else if (norm < 0.41f) return math.lerp(1, 2, (norm - 0.29f) / 0.41f);
-            else if (norm < 0.5f) return math.lerp(2, 3, (norm - 0.41f) / 0.5f);
-            else if (norm < 0.57f) return math.lerp(3, 4, (norm - 0.5f) / 0.57f);
-            else if (norm < 0.61f) return math.lerp(4, 4.5f, (norm - 0.57f) / 0.61f);
-            else if (norm < 0.64f) return math.lerp(4.5f, 5, (norm - 0.61f) / 0.64f);
-            else if (norm < 0.7f) return math.lerp(5, 6, (norm - 0.64f) / 0.7f);
-            else if (norm < 0.76f) return math.lerp(6, 7, (norm - 0.7f) / 0.76f);
-            else if (norm < 0.81f) return math.lerp(7, 8, (norm - 0.76f) / 0.81f);
-            else if (norm < 0.86f) return math.lerp(8, 9, (norm - 0.81f) / 0.86f);
-            else return math.lerp(9, 10, (norm - 0.86f) / 1);
+            if (norm < 0.14f) return math.remap(0, 0.14f, 0, 0.25f, norm);
+            else if (norm < 0.2f) return math.remap(0.14f, 0.2f, 0.25f, 0.5f, norm);
+            else if (norm < 0.29f) return math.remap(0.2f, 0.29f, 0.5f, 1, norm);
+            else if (norm < 0.41f) return math.remap(0.29f, 0.41f, 1, 2, norm);
+            else if (norm < 0.5f) return math.remap(0.41f, 0.5f, 2, 3, norm);
+            else if (norm < 0.57f) return math.remap(0.5f, 0.57f, 3, 4, norm);
+            else if (norm < 0.61f) return math.remap(0.57f, 0.61f, 4, 4.5f, norm);
+            else if (norm < 0.64f) return math.remap(0.61f, 0.64f, 4.5f, 5, norm);
+            else if (norm < 0.7f) return math.remap(0.64f, 0.7f, 5, 6, norm);
+            else if (norm < 0.76f) return math.remap(0.7f, 0.76f, 6, 7, norm);
+            else if (norm < 0.81f) return math.remap(0.76f, 0.81f, 7, 8, norm);
+            else if (norm < 0.86f) return math.remap(0.81f, 0.86f, 8, 9, norm);
+            else return math.remap(0.86f, 1, 9, 10, norm);
         }
         public static float PointingLoss(RealAntenna ant, Vector3 origin)
             => (ant.CanTarget && !ant.IsTracking) ? PointingLoss(Vector3.Angle(origin - ant.Position, ant.ToTarget), ant.Beamwidth) : 0;

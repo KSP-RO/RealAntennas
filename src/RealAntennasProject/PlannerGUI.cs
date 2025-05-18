@@ -132,11 +132,13 @@ namespace RealAntennas
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
+            var home = Planetarium.fetch.Home;
             var bodyList = new List<CelestialBody> { Planetarium.fetch.Sun };
             bodyList.AddRange(Planetarium.fetch.Home.orbitingBodies);
             bodyList.AddRange(Planetarium.fetch.Sun.orbitingBodies);
-            var bodyNames = (from CelestialBody body in bodyList
-                             select body.name).ToArray();
+            bodyList = bodyList.Where(b => b != home).ToList(); // remove homeworld
+            var bodyNames = bodyList.Select(b => b.name).ToArray();
+            if (bodyIndex >= bodyList.Count) bodyIndex = 0;
 
             GUILayout.BeginVertical("Remote Body Presets", boxStyle);
             GUILayout.Space(SPACING);
@@ -144,7 +146,7 @@ namespace RealAntennas
             bodyIndex = GUILayout.SelectionGrid(bodyIndex, bodyNames, 3);
             if (bodyIndex != prev)
             {
-                var body = bodyIndex < bodyList.Count ? bodyList[bodyIndex] : bodyList.First();
+                var body = bodyList[bodyIndex];
                 MinMaxDistance(body, out distanceMin, out distanceMax);
                 ConvertDistance(distanceMax, out double tMax, out dMaxMultIndex);
                 ConvertDistance(distanceMin, out double tMin, out dMinMultIndex);

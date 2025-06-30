@@ -132,11 +132,10 @@ namespace RealAntennas
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
-            var home = Planetarium.fetch.Home;
             var bodyList = new List<CelestialBody> { Planetarium.fetch.Sun };
             bodyList.AddRange(Planetarium.fetch.Home.orbitingBodies);
             bodyList.AddRange(Planetarium.fetch.Sun.orbitingBodies);
-            bodyList = bodyList.Where(b => b != home).ToList(); // remove homeworld
+            bodyList = bodyList.Where(b => b != Planetarium.fetch.Home).ToList(); // remove homeworld
             var bodyNames = bodyList.Select(b => b.name).ToArray();
             if (bodyIndex >= bodyList.Count) bodyIndex = 0;
 

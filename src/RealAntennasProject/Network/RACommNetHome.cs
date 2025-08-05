@@ -1,4 +1,4 @@
-﻿using CommNet;
+using CommNet;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,6 +13,7 @@ namespace RealAntennas.Network
         protected bool isControlSource = true;
         protected bool isControlSourceMultiHop = true;
         private readonly double DriftTolerance = 10000.0;
+        private const double EarthRadius = 6371000;
         public string icon = "radio-antenna";
         public RACommNode Comm => comm as RACommNode;
 
@@ -94,13 +95,21 @@ namespace RealAntennas.Network
         public void OnUpdateVisible(KSP.UI.Screens.Mapview.MapNode mapNode, KSP.UI.Screens.Mapview.MapNode.IconData iconData)
         {
             Vector3d worldPos = ScaledSpace.LocalToScaledSpace(Comm.precisePosition);
-            iconData.visible &= MapView.MapCamera.transform.InverseTransformPoint(worldPos).z >= 0 && !IsOccludedToCamera(Comm.precisePosition, body);
+            iconData.visible &= MapView.MapCamera.transform.InverseTransformPoint(worldPos).z >= 0
+                && !IsOccludedToCamera(Comm.precisePosition, body)
+                && CameraCommDistance(Comm.precisePosition) <= 1e9 * (body.Radius / EarthRadius); // 1 Gm, scaled to body radius
         }
 
         private bool IsOccludedToCamera(Vector3d position, CelestialBody body)
         {
             Vector3d camPos = ScaledSpace.ScaledToLocalSpace(PlanetariumCamera.Camera.transform.position);
             return Vector3d.Angle(camPos - position, body.position - position) <= 90;
+        }
+
+        double CameraCommDistance(Vector3d position)
+        {
+            Vector3d camPos = ScaledSpace.ScaledToLocalSpace(PlanetariumCamera.Camera.transform.position);
+            return Vector3d.Distance(camPos, position);
         }
 
         public void CheckNodeConsistency()

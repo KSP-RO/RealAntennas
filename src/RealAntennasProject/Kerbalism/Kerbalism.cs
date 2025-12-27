@@ -18,6 +18,7 @@ namespace RealAntennas.Kerbalism
                 double ec = ecIdle, rate = 0, strength = 0, packetInterval = 1.0f;
                 int status = 2;
                 string target_name = "NotConnected";
+                Guid nextHop = Guid.Empty;
                 List<string[]> sList = new List<string[]>();
                 if (!v.loaded) raCNV.powered = powered;
                 if (powered && node.AntennaTowardsHome() is RealAntenna ra)
@@ -33,8 +34,16 @@ namespace RealAntennas.Kerbalism
                     }
                     foreach (CommNet.CommLink clink in path)
                     {
+                        try
+                        {
+                            nextHop = clink.end.transform.gameObject.GetComponent<Vessel>().id;
+                        }
+                        catch //No nexthop
+                        {
+                        }
                         sList.Add(new string[1] { clink.end.displayName });
                     }
+
                     //sList.Add(new string[1] { path.First.end.name });
                     target_name = path.First.end.displayName;
                 }
@@ -49,8 +58,16 @@ namespace RealAntennas.Kerbalism
                 {
                     p1.GetType().GetField("control_path").SetValue(p1, sList);
                 }
-                catch
-                { } // if it fails we are >= 3.30 Kerbalism, can ignore.
+                catch // if it fails we are >= 3.30 Kerbalism, set properly
+                {
+                    if (HighLogic.LoadedSceneIsFlight || (HighLogic.LoadedScene.Equals(GameScenes.TRACKSTATION)))
+                    {
+                        if (!nextHop.Equals(Guid.Empty))
+                        {
+                            p1.GetType().GetField("next_hop").SetValue(p1, nextHop);
+                        }
+                    }
+                } 
                 p1.GetType().GetField("ec_idle")?.SetValue(p1, ecIdle);
 
                 //Debug.LogFormat($"{ModTag}Rate: {RATools.PrettyPrintDataRate(rate * 8 * 1024 * 1024)} EC: {ec:F4}  Linked:{raCNV.IsConnectedHome}  Strength: {strength:F2}  Target: {target_name}");
@@ -60,7 +77,7 @@ namespace RealAntennas.Kerbalism
         {
             foreach (var a in AssemblyLoader.loadedAssemblies)
             {
-                if (a.name.StartsWith("Kerbalism") && 
+                if (a.name.StartsWith("Kerbalism") &&
                     !a.name.StartsWith("KerbalismBoot") &&
                     a.assembly.GetType("KERBALISM.API") is Type KerbalismAPIType
                     )

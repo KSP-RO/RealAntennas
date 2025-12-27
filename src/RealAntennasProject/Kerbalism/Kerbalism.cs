@@ -46,11 +46,7 @@ namespace RealAntennas.Kerbalism
                 p1.GetType().GetField("status").SetValue(p1, status);       // 0=direct, 1=indirect, 2=none
                 p1.GetType().GetField("strength").SetValue(p1, strength);   // Signal quality indicator (float 0..1)
                 p1.GetType().GetField("target_name").SetValue(p1, target_name);
-                if (new330PlusKerbalismAssembly) // Release >= 3.30
-                {
-                    p1.GetType().GetField("next_hop").SetValue(p1, sList[0]);
-                }
-                else //legacy code <= 3.29
+                if (!new330PlusKerbalismAssembly) //legacy code <= 3.29
                 {
                     p1.GetType().GetField("control_path").SetValue(p1, sList);
                 }

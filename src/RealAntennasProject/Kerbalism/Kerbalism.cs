@@ -8,7 +8,6 @@ namespace RealAntennas.Kerbalism
     {
         public static readonly string ModTag = "[RAKerbalismLink] ";
         public static Assembly KerbalismAssembly = null;
-        public static bool new330PlusKerbalismAssembly = false;
         public static void RAKerbalismLinkHandler(object p1, Vessel v)
         {
             if (CommNet.CommNetScenario.CommNetEnabled && v.Connection is RACommNetVessel raCNV && raCNV.Comm is RACommNode node)
@@ -46,10 +45,12 @@ namespace RealAntennas.Kerbalism
                 p1.GetType().GetField("status").SetValue(p1, status);       // 0=direct, 1=indirect, 2=none
                 p1.GetType().GetField("strength").SetValue(p1, strength);   // Signal quality indicator (float 0..1)
                 p1.GetType().GetField("target_name").SetValue(p1, target_name);
-                if (!new330PlusKerbalismAssembly) //legacy code <= 3.29
+                try //legacy code <= 3.29
                 {
                     p1.GetType().GetField("control_path").SetValue(p1, sList);
                 }
+                catch
+                { } // if it fails we are >= 3.30 Kerbalism, can ignore.
                 p1.GetType().GetField("ec_idle")?.SetValue(p1, ecIdle);
 
                 //Debug.LogFormat($"{ModTag}Rate: {RATools.PrettyPrintDataRate(rate * 8 * 1024 * 1024)} EC: {ec:F4}  Linked:{raCNV.IsConnectedHome}  Strength: {strength:F2}  Target: {target_name}");
@@ -64,10 +65,6 @@ namespace RealAntennas.Kerbalism
                     a.assembly.GetType("KERBALISM.API") is Type KerbalismAPIType
                     )
                 {
-                    if (a.versionMajor == 3 && a.versionMinor > 29)
-                    {
-                        new330PlusKerbalismAssembly = true;
-                    }
                     KerbalismAssembly = a.assembly;
                     MethodInfo baseMethod = typeof(Kerbalism).GetMethod(nameof(RAKerbalismLinkHandler));
                     var x = baseMethod;

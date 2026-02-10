@@ -45,18 +45,30 @@ namespace RealAntennas.MapUI
 
             if (MapView.fetch is MapView)
             {
-                Texture2D defaultTex = GameDatabase.Instance.GetTexture(icon, false);
-                foreach (RACommNetHome home in RACommNetScenario.EnabledStations)
-                {
-                    MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
-                    SiteNode siteNode = SiteNode.Spawn(gs);
-                    Texture2D stationTexture = (GameDatabase.Instance.GetTexture(home.icon, false) is Texture2D tex) ? tex : defaultTex;
-                    siteNode.wayPoint.node.SetIcon(Sprite.Create(stationTexture, new Rect(0, 0, stationTexture.width, stationTexture.height), new Vector2(0.5f, 0.5f), 100f));
-                    siteNode.wayPoint.node.OnUpdateVisible += home.OnUpdateVisible;
-                    groundStationSiteNodes.Add(siteNode);
-                }
+                RefreshSiteNodes();
             }
             RATelemetryUpdate.Install();
+        }
+
+        public void RefreshSiteNodes() {
+            Texture2D defaultTex = GameDatabase.Instance.GetTexture(icon, false);
+            foreach (RACommNetHome home in RACommNetScenario.EnabledStations)
+            {
+                // I am sorely tempted to change groundStationSiteNodes to a Dictionary to make this duplication check faster
+                if (groundStationSiteNodes.Any(node => node.siteObject.GetName() == home.name)) { 
+                    continue; 
+                }
+                // but groundStationSiteNodes is public and it seems breaking to change the datatype?
+                // oh well, O(N^2) it is. Surely there cannot be too many ground stations, and this code will only run once.
+
+                Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.name}");
+                MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
+                SiteNode siteNode = SiteNode.Spawn(gs);
+                Texture2D stationTexture = (GameDatabase.Instance.GetTexture(home.icon, false) is Texture2D tex) ? tex : defaultTex;
+                siteNode.wayPoint.node.SetIcon(Sprite.Create(stationTexture, new Rect(0, 0, stationTexture.width, stationTexture.height), new Vector2(0.5f, 0.5f), 100f));
+                siteNode.wayPoint.node.OnUpdateVisible += home.OnUpdateVisible;
+                groundStationSiteNodes.Add(siteNode);
+            }
         }
 
         // If either one of these lists is nonempty, the links that are shown

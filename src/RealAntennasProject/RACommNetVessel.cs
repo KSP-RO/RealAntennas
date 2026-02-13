@@ -203,7 +203,7 @@ namespace RealAntennas
             Profiler.EndSample();
         }
 
-        protected List<RealAntenna> DiscoverAntennas()
+        public List<RealAntenna> DiscoverAntennas()
         {
             antennaList.Clear();
             inactiveAntennas.Clear();

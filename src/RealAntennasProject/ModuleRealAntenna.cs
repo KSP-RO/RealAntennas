@@ -326,8 +326,8 @@ namespace RealAntennas
             SetFieldVisibility();
             SetupIdlePower();
             GameEvents.onVesselWasModified.Fire(vessel);    // Need to notify RACommNetVessel about disabling antennas
-            RACommNetScenario scen = RACommNetScenario.Instance as RACommNetScenario;
-            scen?.Network?.ResetNetwork();
+            if (vessel.connection is RACommNetVessel RACNV)
+                RACNV.DiscoverAntennas();
         }
 
         private void ApplyGameSettings()

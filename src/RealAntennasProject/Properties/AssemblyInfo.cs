@@ -42,3 +42,4 @@ using System.Runtime.InteropServices;
 #endif
 
 [assembly: KSPAssemblyDependency("ClickThroughBlocker", 1, 8)]
+[assembly: KSPAssemblyDependency("KSPCommunityFixes", 1, 36, 0)]

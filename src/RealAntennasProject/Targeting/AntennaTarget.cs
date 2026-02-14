@@ -33,7 +33,9 @@ namespace RealAntennas.Targeting
         }
         public virtual void Awake()
         {
+#if ENABLE_PROFILER
             Debug.Log("AntennaTarget.Awake()");
+#endif
         }
 
         public virtual void FixedUpdate()

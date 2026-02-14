@@ -118,9 +118,9 @@ namespace RealAntennas.Targeting
                 GUILayout.BeginVertical();
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Lat");
-                sLat = GUILayout.TextField(sLat, 4);
+                sLat = GUILayout.TextField(sLat, 10);
                 GUILayout.Label("Lon");
-                sLon = GUILayout.TextField(sLon, 4);
+                sLon = GUILayout.TextField(sLon, 10);
                 GUILayout.Label("Alt");
                 sAlt = GUILayout.TextField(sAlt, 15);
                 GUILayout.EndHorizontal();
@@ -152,9 +152,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Azimuth");
-                sAzimuth = GUILayout.TextField(sAzimuth, 4);
+                sAzimuth = GUILayout.TextField(sAzimuth, 10);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 4);
+                sElevation = GUILayout.TextField(sElevation, 10);
                 GUILayout.EndHorizontal();
                 if (GUILayout.Button("Apply"))
                 {
@@ -177,9 +177,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Deflection");
-                sForward = GUILayout.TextField($"{deflection}", 5);
+                sForward = GUILayout.TextField($"{deflection}", 10);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 4);
+                sElevation = GUILayout.TextField(sElevation, 10);
                 GUILayout.EndHorizontal();
                 float.TryParse(sForward, out deflection);
                 deflection = GUILayout.HorizontalSlider(deflection, -180, 180);
@@ -202,6 +202,8 @@ namespace RealAntennas.Targeting
             GUILayout.EndVertical();
             GUILayout.Space(15);
             if (GUILayout.Button("Close")) Destroy(this);
+            if (antenna.TechLevelInfo.Level < targetMode.techLevel) // have to do this after the GUI is made to avoid issues with scaling
+                targetMode = GetNextTargetMode();
             GUI.DragWindow();
         }
 

@@ -35,6 +35,7 @@ namespace RealAntennas.Network
             lat = double.Parse(node.GetValue("lat"));
             lon = double.Parse(node.GetValue("lon"));
             alt = double.Parse(node.GetValue("alt"));
+            this.body = body;
             string value = null;
             if (node.TryGetValue("isHome", ref value))
             {
@@ -72,24 +73,7 @@ namespace RealAntennas.Network
 //            Vector3d pos = (nodeTransform == null) ? transform.position : nodeTransform.position;
 //            body.GetLatLonAlt(pos, out lat, out lon, out alt);
 
-            RACommNode t = comm as RACommNode;
-            t.ParentBody = body;
-            int tsLevel = RACommNetScenario.GroundStationTechLevel;
-            // Config node contains a list of antennas to build.
-            t.RAAntennaList = new List<RealAntenna> { };
-            foreach (ConfigNode antNode in config.GetNodes("Antenna")) 
-            {
-                //Debug.LogFormat("Building an antenna for {0}", antNode);
-                int targetLevel = Int32.Parse(antNode.GetValue("TechLevel"));
-                if (tsLevel >= targetLevel)
-                {
-                    RealAntenna ant = new RealAntennaDigital(name) { ParentNode = comm };
-                    ant.LoadFromConfigNode(antNode);
-                    ant.ProcessUpgrades(tsLevel, antNode);
-                    ant.TechLevelInfo = TechLevelInfo.GetTechLevel(tsLevel);
-                    t.RAAntennaList.Add(ant);
-                }
-            }
+            BuildAntennas();
         }
 
         public void OnUpdateVisible(KSP.UI.Screens.Mapview.MapNode mapNode, KSP.UI.Screens.Mapview.MapNode.IconData iconData)
@@ -121,6 +105,30 @@ namespace RealAntennas.Network
                 body.GetLatLonAlt(pos, out double cLat, out double cLon, out double cAlt);
                 Debug.LogFormat($"{ModTag} {name} {nodeName} correcting position from current {cLat:F2}/{cLon:F2}/{cAlt:F0} to desired {lat:F2}/{lon:F2}/{alt:F0}");
                 transform.SetPositionAndRotation(desiredPos, Quaternion.identity);
+            }
+        }
+
+        public void BuildAntennas() {
+            // Just rebuilds the antennas without destroying the node.
+            // Useful in case the tech level changes.
+
+            RACommNode t = comm as RACommNode;
+            t.ParentBody = body;
+            int tsLevel = RACommNetScenario.GroundStationTechLevel;
+            // Config node contains a list of antennas to build.
+            t.RAAntennaList = new List<RealAntenna> { };
+            foreach (ConfigNode antNode in config.GetNodes("Antenna")) 
+            {
+                //Debug.LogFormat("Building an antenna for {0}", antNode);
+                int targetLevel = Int32.Parse(antNode.GetValue("TechLevel"));
+                if (tsLevel >= targetLevel)
+                {
+                    RealAntenna ant = new RealAntennaDigital(name) { ParentNode = comm };
+                    ant.LoadFromConfigNode(antNode);
+                    ant.ProcessUpgrades(tsLevel, antNode);
+                    ant.TechLevelInfo = TechLevelInfo.GetTechLevel(tsLevel);
+                    t.RAAntennaList.Add(ant);
+                }
             }
         }
     }

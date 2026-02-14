@@ -96,7 +96,7 @@ namespace RealAntennas
                 if (GUILayout.Button("Apply", GUILayout.ExpandWidth(false)))
                 {
                     RACommNetScenario.GroundStationTechLevel = iTechLevel;
-                    (RACommNetScenario.Instance as RACommNetScenario).RebuildHomes();
+                    (RACommNetScenario.Instance as RACommNetScenario).UpdateTLHomes();
                     fixedAntenna = primaryAntenna;
                     ScreenMessages.PostScreenMessage($"Set Ground Station TL to {iTechLevel} and reset Home antenna to {primaryAntenna.Name}", 2, ScreenMessageStyle.UPPER_CENTER, Color.yellow);
                     RequestUpdate = true;

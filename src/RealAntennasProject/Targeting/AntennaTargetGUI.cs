@@ -244,16 +244,13 @@ namespace RealAntennas.Targeting
 
         public TargetModeInfo GetNextTargetMode()
         {
-            int start = TargetModeInfo.ListAll.IndexOf(targetMode);
-            int i = 0;
-            int maxIter = TargetModeInfo.ListAll.Count;
-            do
-            {
-                i++;
-                int ind = (start + i) % maxIter;
-                targetMode = TargetModeInfo.ListAll[ind];
-            } while (antenna.TechLevelInfo.Level < targetMode.techLevel && i <= maxIter);
-            return targetMode;
+            List<TargetModeInfo> validModes = TargetModeInfo.ListAll.Where(x => x.techLevel <= antenna.TechLevelInfo.Level).ToList();
+
+            int start = validModes.IndexOf(targetMode);
+            int count = validModes.Count;
+            int newIndex = start != -1 ? (start + 1) % count : 0;
+
+            return validModes[newIndex];
         }
 
         private class RFBandComparer : IComparer<Vessel>

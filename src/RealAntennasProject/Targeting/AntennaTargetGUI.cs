@@ -152,7 +152,7 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Azimuth");
-                sAzimuth = GUILayout.TextField(sAzimuth, 7);
+                sAzimuth = GUILayout.TextField(sAzimuth, 6);
                 GUILayout.Label("Elevation");
                 sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();
@@ -177,7 +177,7 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Deflection");
-                sForward = GUILayout.TextField($"{deflection}", 6);
+                sForward = GUILayout.TextField($"{deflection}", 7);
                 GUILayout.Label("Elevation");
                 sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();

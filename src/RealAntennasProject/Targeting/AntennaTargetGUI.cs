@@ -246,11 +246,7 @@ namespace RealAntennas.Targeting
         {
             List<TargetModeInfo> validModes = TargetModeInfo.ListAll.Where(x => x.techLevel <= antenna.TechLevelInfo.Level).ToList();
 
-            int start = validModes.IndexOf(targetMode);
-            int count = validModes.Count;
-            int newIndex = (start + 1) % count;
-
-            return validModes[newIndex];
+            return validModes[(validModes.IndexOf(targetMode) + 1) % validModes.Count];
         }
 
         private class RFBandComparer : IComparer<Vessel>

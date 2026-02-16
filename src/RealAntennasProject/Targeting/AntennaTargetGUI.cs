@@ -248,7 +248,7 @@ namespace RealAntennas.Targeting
 
             int start = validModes.IndexOf(targetMode);
             int count = validModes.Count;
-            int newIndex = start != -1 ? (start + 1) % count : 0;
+            int newIndex = (start + 1) % count;
 
             return validModes[newIndex];
         }

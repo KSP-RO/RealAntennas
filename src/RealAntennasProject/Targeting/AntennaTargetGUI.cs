@@ -26,6 +26,8 @@ namespace RealAntennas.Targeting
         {
             vessels.Clear();
             vessels.AddRange(FlightGlobals.Vessels);
+            if (antenna.TechLevelInfo.Level < targetMode.techLevel)
+                targetMode = GetNextTargetMode();
         }
 
         public void OnGUI()
@@ -39,7 +41,7 @@ namespace RealAntennas.Targeting
             Vessel parentVessel = (antenna?.ParentNode as RACommNode)?.ParentVessel;
 
             GUILayout.BeginVertical(HighLogic.Skin.box);
-            GUILayout.Label($"Vessel: {parentVessel?.name ?? "None"}");
+            GUILayout.Label($"Vessel: {parentVessel?.name ?? "None"}", GUILayout.Width(450));
             GUILayout.Label($"Antenna: {antenna.Name}");
             GUILayout.Label($"Band: {antenna.RFBand.name}       Power: {antenna.TxPower}dBm");
             GUILayout.Label($"Target: {antenna.Target}");
@@ -202,8 +204,6 @@ namespace RealAntennas.Targeting
             GUILayout.EndVertical();
             GUILayout.Space(15);
             if (GUILayout.Button("Close")) Destroy(this);
-            if (antenna.TechLevelInfo.Level < targetMode.techLevel) // have to do this after the GUI is made to avoid issues with scaling
-                targetMode = GetNextTargetMode();
             GUI.DragWindow();
         }
 

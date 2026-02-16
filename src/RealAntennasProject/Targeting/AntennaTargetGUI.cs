@@ -118,9 +118,9 @@ namespace RealAntennas.Targeting
                 GUILayout.BeginVertical();
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Lat");
-                sLat = GUILayout.TextField(sLat, 10);
+                sLat = GUILayout.TextField(sLat, 6);
                 GUILayout.Label("Lon");
-                sLon = GUILayout.TextField(sLon, 10);
+                sLon = GUILayout.TextField(sLon, 6);
                 GUILayout.Label("Alt");
                 sAlt = GUILayout.TextField(sAlt, 15);
                 GUILayout.EndHorizontal();
@@ -152,9 +152,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Azimuth");
-                sAzimuth = GUILayout.TextField(sAzimuth, 10);
+                sAzimuth = GUILayout.TextField(sAzimuth, 7);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 10);
+                sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();
                 if (GUILayout.Button("Apply"))
                 {
@@ -177,9 +177,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Deflection");
-                sForward = GUILayout.TextField($"{deflection}", 10);
+                sForward = GUILayout.TextField($"{deflection}", 6);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 10);
+                sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();
                 float.TryParse(sForward, out deflection);
                 deflection = GUILayout.HorizontalSlider(deflection, -180, 180);

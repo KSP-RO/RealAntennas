@@ -33,7 +33,7 @@ namespace RealAntennas.Targeting
         public void OnGUI()
         {
             GUI.skin = HighLogic.Skin;
-            Window = ClickThruBlocker.GUILayoutWindow(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window);
+            Window = ClickThruBlocker.GUILayoutWindow(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window, GUILayout.Width(450));
         }
 
         void GUIDisplay(int windowID)
@@ -41,7 +41,7 @@ namespace RealAntennas.Targeting
             Vessel parentVessel = (antenna?.ParentNode as RACommNode)?.ParentVessel;
 
             GUILayout.BeginVertical(HighLogic.Skin.box);
-            GUILayout.Label($"Vessel: {parentVessel?.name ?? "None"}", GUILayout.Width(450));
+            GUILayout.Label($"Vessel: {parentVessel?.name ?? "None"}");
             GUILayout.Label($"Antenna: {antenna.Name}");
             GUILayout.Label($"Band: {antenna.RFBand.name}       Power: {antenna.TxPower}dBm");
             GUILayout.Label($"Target: {antenna.Target}");

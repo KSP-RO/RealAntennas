@@ -33,7 +33,6 @@ namespace RealAntennas.Targeting
         }
         public virtual void Awake()
         {
-            Debug.Log("AntennaTarget.Awake()");
         }
 
         public virtual void FixedUpdate()

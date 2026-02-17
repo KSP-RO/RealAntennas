@@ -26,12 +26,14 @@ namespace RealAntennas.Targeting
         {
             vessels.Clear();
             vessels.AddRange(FlightGlobals.Vessels);
+            if (antenna.TechLevelInfo.Level < targetMode.techLevel)
+                targetMode = GetNextTargetMode();
         }
 
         public void OnGUI()
         {
             GUI.skin = HighLogic.Skin;
-            Window = ClickThruBlocker.GUILayoutWindow(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window);
+            Window = ClickThruBlocker.GUILayoutWindow(GetHashCode(), Window, GUIDisplay, GUIName, HighLogic.Skin.window, GUILayout.Width(450));
         }
 
         void GUIDisplay(int windowID)
@@ -118,9 +120,9 @@ namespace RealAntennas.Targeting
                 GUILayout.BeginVertical();
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Lat");
-                sLat = GUILayout.TextField(sLat, 4);
+                sLat = GUILayout.TextField(sLat, 6);
                 GUILayout.Label("Lon");
-                sLon = GUILayout.TextField(sLon, 4);
+                sLon = GUILayout.TextField(sLon, 6);
                 GUILayout.Label("Alt");
                 sAlt = GUILayout.TextField(sAlt, 15);
                 GUILayout.EndHorizontal();
@@ -152,9 +154,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Azimuth");
-                sAzimuth = GUILayout.TextField(sAzimuth, 4);
+                sAzimuth = GUILayout.TextField(sAzimuth, 6);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 4);
+                sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();
                 if (GUILayout.Button("Apply"))
                 {
@@ -177,9 +179,9 @@ namespace RealAntennas.Targeting
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Deflection");
-                sForward = GUILayout.TextField($"{deflection}", 5);
+                sForward = GUILayout.TextField($"{deflection}", 7);
                 GUILayout.Label("Elevation");
-                sElevation = GUILayout.TextField(sElevation, 4);
+                sElevation = GUILayout.TextField(sElevation, 6);
                 GUILayout.EndHorizontal();
                 float.TryParse(sForward, out deflection);
                 deflection = GUILayout.HorizontalSlider(deflection, -180, 180);
@@ -242,16 +244,9 @@ namespace RealAntennas.Targeting
 
         public TargetModeInfo GetNextTargetMode()
         {
-            int start = TargetModeInfo.ListAll.IndexOf(targetMode);
-            int i = 0;
-            int maxIter = TargetModeInfo.ListAll.Count;
-            do
-            {
-                i++;
-                int ind = (start + i) % maxIter;
-                targetMode = TargetModeInfo.ListAll[ind];
-            } while (antenna.TechLevelInfo.Level < targetMode.techLevel && i <= maxIter);
-            return targetMode;
+            List<TargetModeInfo> validModes = TargetModeInfo.ListAll.Where(x => x.techLevel <= antenna.TechLevelInfo.Level).ToList();
+
+            return validModes[(validModes.IndexOf(targetMode) + 1) % validModes.Count];
         }
 
         private class RFBandComparer : IComparer<Vessel>

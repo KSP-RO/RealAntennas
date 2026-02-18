@@ -222,8 +222,8 @@ namespace RealAntennas
             Debug.Log(logger.ToStringAndRelease());
         }
         public void UpdateTLHomes() {
-            foreach (CommNetHome home in FindObjectsOfType<CommNetHome>()) {
-                (home as Network.RACommNetHome).BuildAntennas();
+            foreach (Network.RACommNetHome home in FindObjectsOfType<Network.RACommNetHome>()) {
+                home.BuildAntennas();
             }
         }
 

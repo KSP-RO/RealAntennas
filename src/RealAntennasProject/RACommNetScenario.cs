@@ -221,6 +221,11 @@ namespace RealAntennas
             GroundStations.Clear();
             Debug.Log(logger.ToStringAndRelease());
         }
+        public void UpdateTLHomes() {
+            foreach (Network.RACommNetHome home in FindObjectsOfType<Network.RACommNetHome>()) {
+                home.BuildAntennas();
+            }
+        }
 
         private CommNetHome BuildHome(ConfigNode node, CelestialBody body)
         {

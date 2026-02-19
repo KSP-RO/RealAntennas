@@ -250,22 +250,28 @@ namespace RealAntennas
             else
             {
                 var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
-                if (GetBestMatchingGroundStation(peer, homes) is RealAntenna bestDSNAntenna &&
-                    GUILayout.Button($"<color=orange>[Best Station]</color>: {bestDSNAntenna.ToStringShort()}", buttonStyle))
-                {
-                    antenna = bestDSNAntenna;
-                    res = true;
+                bool first = true;
+                foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) {
+                    if (peer.Compatible(ra) && GUILayout.Button($"{(first ? "<color=orange>[Best Station]</color>: " : "")}{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
+                    {
+                        antenna = ra;
+                        res = true;
+                    }
+                    first = false;
                 }
-                foreach (Network.RACommNetHome home in homes)
-                    foreach (RealAntenna ra in home.Comm.RAAntennaList)
-                        if (peer.Compatible(ra) && GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
-                        {
-                            antenna = ra;
-                            res = true;
-                        }
             }
             GUILayout.EndScrollView();
             return res;
+        }
+
+        public IEnumerable<RealAntenna> FilterAndSortAntennas(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)
+        {
+            List<RealAntenna> antennas = new List<RealAntenna>();
+            foreach (Network.RACommNetHome home in stations) 
+                foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.Compatible(peer))) 
+                    antennas.Add(ra);
+            
+            return antennas.OrderByDescending(ra => ra.Gain);
         }
 
         public RealAntenna GetBestMatchingGroundStation(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)

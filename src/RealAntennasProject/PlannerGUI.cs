@@ -37,13 +37,13 @@ namespace RealAntennas
         private SelectionMode fixedSelectionMode = SelectionMode.GroundStation;
         private const string sNoConnection = "<color=orange><b>(No Connection)</b></color>";
 
-        enum SortOrder { Name, RxGain, TxStrength }
+        enum SortOrder { Name, RxGain }
         private SortOrder groundStationSortOrder = SortOrder.RxGain;
         private bool ascending = false;
         private static readonly Dictionary<SortOrder, Func<RealAntenna, IComparable>> sortKeyFunctions = new Dictionary<SortOrder, Func<RealAntenna, IComparable>> {
             { SortOrder.Name, ra => ra.ParentNode.displayName },
             { SortOrder.RxGain, ra => ra.Gain },
-            { SortOrder.TxStrength, ra => ra.Gain + ra.TxPower },
+//            { SortOrder.TxStrength, ra => ra.Gain + ra.TxPower },
         };
 
         public void Start()

@@ -273,13 +273,12 @@ namespace RealAntennas
             else
             {
                 var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
-                foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) {
+                foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) 
                     if (peer.Compatible(ra) && GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
                     {
                         antenna = ra;
                         res = true;
                     }
-                }
             }
             GUILayout.EndScrollView();
             return res;
@@ -293,13 +292,9 @@ namespace RealAntennas
                     antennas.Add(ra);
 
             if (ascending) 
-            {
                 return antennas.OrderBy(sortKeyFunctions[groundStationSortOrder]);
-            } 
             else 
-            {
                 return antennas.OrderByDescending(sortKeyFunctions[groundStationSortOrder]);
-            }
         }
 
         public RealAntenna GetBestMatchingGroundStation(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)

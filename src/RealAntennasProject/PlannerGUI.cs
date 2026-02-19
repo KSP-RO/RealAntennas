@@ -40,7 +40,8 @@ namespace RealAntennas
         enum SortOrder { Name, RxGain }
         private SortOrder groundStationSortOrder = SortOrder.RxGain;
         private bool ascending = false;
-        private static readonly Dictionary<SortOrder, Func<RealAntenna, IComparable>> sortKeyFunctions = new Dictionary<SortOrder, Func<RealAntenna, IComparable>> {
+        private static readonly Dictionary<SortOrder, Func<RealAntenna, IComparable>> sortKeyFunctions = new Dictionary<SortOrder, Func<RealAntenna, IComparable>> 
+        {
             { SortOrder.Name, ra => ra.ParentNode.displayName },
             { SortOrder.RxGain, ra => ra.Gain },
 //            { SortOrder.TxStrength, ra => ra.Gain + ra.TxPower },
@@ -111,18 +112,19 @@ namespace RealAntennas
                     RequestUpdate = true;
                 }
                 GUILayout.FlexibleSpace();
+
                 GUILayout.BeginVertical();
                 GUILayout.Label("Ground Station Sort Order: ");
-                
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button(Enum.GetName(typeof(SortOrder), groundStationSortOrder))) {
+                if (GUILayout.Button(Enum.GetName(typeof(SortOrder), groundStationSortOrder))) 
                     groundStationSortOrder = (SortOrder) (((int)(groundStationSortOrder + 1)) % Enum.GetValues(typeof(SortOrder)).Length);
-                    // This is so ugly. I hate it. But it works generically even if we add more SortOrders later, so long as we stick to the 0-indexed behaviour of enums.
-                }
-                if (GUILayout.Button(ascending ? "Asc." : "Desc.")) { ascending = !ascending; }
+                    // This is so ugly. I hate it. But it works even if we add more SortOrders later, so long as we stick to the 0-indexed behaviour of enums.
+                
+                if (GUILayout.Button(ascending ? "Asc." : "Desc.")) 
+                    ascending = !ascending; 
                 GUILayout.EndHorizontal();
-
                 GUILayout.EndVertical();
+
                 GUILayout.EndHorizontal();
             }
 
@@ -290,9 +292,12 @@ namespace RealAntennas
                 foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.Compatible(peer))) 
                     antennas.Add(ra);
 
-            if (ascending) {
+            if (ascending) 
+            {
                 return antennas.OrderBy(sortKeyFunctions[groundStationSortOrder]);
-            } else {
+            } 
+            else 
+            {
                 return antennas.OrderByDescending(sortKeyFunctions[groundStationSortOrder]);
             }
         }

@@ -349,7 +349,7 @@ namespace RealAntennas
             var defaultPos = home.GetWorldSurfacePosition(0, 0, 100);
             var defaultOffset = home.GetWorldSurfacePosition(0, 0, 1e6);
             var defaultDir = (defaultOffset - defaultPos).normalized;
-            var offset = fixedNode.isHome ? 1e8 : 0;
+            var offset = ((fixedAntenna.ParentNode as RACommNode)?.isGroundStation ?? false) ? 1e8 : 0;
             fixedNode.transform.SetPositionAndRotation(defaultPos + offset * defaultDir, Quaternion.identity);
             primaryNearNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMin) * defaultDir, Quaternion.identity);
             primaryFarNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMax) * defaultDir, Quaternion.identity);
@@ -361,6 +361,9 @@ namespace RealAntennas
             primaryNearNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
             primaryFarNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
             fixedNode.ParentBody = (fixedAntenna.ParentNode as RACommNode)?.ParentBody;
+            primaryNearNode.ParentVessel = (primaryAntenna.ParentNode as RACommNode)?.ParentVessel; // Copy this info over as well in case anything needs it.
+            primaryFarNode.ParentVessel = (primaryAntenna.ParentNode as RACommNode)?.ParentVessel;
+            fixedNode.ParentVessel = (fixedAntenna.ParentNode as RACommNode)?.ParentVessel;
 
             var nodes = new List<CommNet.CommNode> { fixedNode, primaryNearNode };
             var bodies = new List<CelestialBody> { Planetarium.fetch.Home };

@@ -28,7 +28,7 @@ namespace RealAntennas.Precompute
     {
         internal double3 position;
         internal double3 surfaceNormal;
-        internal bool isHome;
+        internal bool isGroundStation;
         internal bool canComm;
     }
 
@@ -682,7 +682,7 @@ namespace RealAntennas.Precompute
                     infos.Add(new CNInfo()
                     {
                         position = new double3(node.precisePosition.x, node.precisePosition.y, node.precisePosition.z),
-                        isHome = node.isHome,
+                        isGroundStation = node.isGroundStation, 
                         canComm = forceValid || node.CanComm(),
                         surfaceNormal = new double3(surfN.x, surfN.y, surfN.z),
                         //name = $"{node}",

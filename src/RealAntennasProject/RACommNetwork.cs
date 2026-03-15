@@ -22,6 +22,8 @@ namespace RealAntennas
         public List<CommNode> Nodes { get => nodes; }
         public RealAntenna DebugAntenna => connectionDebugger?.antenna;
         public Network.ConnectionDebugger connectionDebugger = null;
+        public readonly EventVoid NetworkUpdateComplete = new EventVoid("Network Rebuild Complete");
+        public double LastUpdateUT { get; private set; } = 0;
 
         public override CommNode Add(CommNode conn)
         {
@@ -164,6 +166,8 @@ namespace RealAntennas
                 PostUpdateNodes();
                 if (OnNetworkPostUpdate is Action)
                     OnNetworkPostUpdate();
+                LastUpdateUT = Planetarium.GetUniversalTime();
+                NetworkUpdateComplete.Fire();
                 tempWatch.Stop();
                 Profiler.EndSample();
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Precompute LateRebuild", PrecomputeLateWatch.Elapsed.TotalMilliseconds);

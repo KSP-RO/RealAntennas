@@ -18,7 +18,7 @@ namespace RealAntennas.Precompute
             int y = pairs[index].y;
             CNInfo a = nodes[x];
             CNInfo b = nodes[y];
-            valid[index] = x != y && !(a.isHome && b.isHome) && a.canComm && b.canComm;
+            valid[index] = x != y && !(a.isGroundStation && b.isGroundStation) && a.canComm && b.canComm;
         }
     }
 

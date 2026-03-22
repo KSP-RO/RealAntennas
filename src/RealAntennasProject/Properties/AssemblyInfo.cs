@@ -43,3 +43,4 @@ using System.Runtime.InteropServices;
 
 [assembly: KSPAssemblyDependency("ClickThroughBlocker", 1, 8)]
 [assembly: KSPAssemblyDependency("KSPCommunityFixes", 1, 36, 0)]
+[assembly: KSPAssemblyDependency("KSPBurst", 1, 5, 5)]

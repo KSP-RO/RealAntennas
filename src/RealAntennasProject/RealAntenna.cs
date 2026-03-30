@@ -117,10 +117,15 @@ namespace RealAntennas
             TxPower = (config.HasValue("TxPower")) ? float.Parse(config.GetValue("TxPower")) : 30f;
             SymbolRate = RFBand.MaxSymbolRate(TechLevelInfo.Level);
             AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
+            
+            // Ground stations that intend to have their antennas track all peer antennas
+            // should either have isHome set (valid science endpoint)
+            // or else have an empty TARGET node specified for each of their antennas.
             if (config.HasNode("TARGET"))
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
             else if (Shape != AntennaShape.Omni && (ParentNode == null || !ParentNode.isHome) && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
                 Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
+
             EncoderOverride = (config.HasValue("EncoderOverride")) ? config.GetValue("EncoderOverride") : null;
         }
 

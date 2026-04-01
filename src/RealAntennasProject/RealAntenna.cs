@@ -121,6 +121,10 @@ namespace RealAntennas
             AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
             if (config.HasNode("TARGET"))
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
+            else if (ParentNode is RACommNode RANode && RANode.isGroundStation) {
+                Debug.LogFormat($"{ModTag} ground station {RANode.displayName} antenna {Name} missing TARGET node - defaulted to null");
+                Target = null;
+            }
             else if (Shape != AntennaShape.Omni && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
                 Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
 
@@ -158,8 +162,6 @@ namespace RealAntennas
 
         public virtual ConfigNode SetDefaultTarget()
         {
-            if (ParentNode is RACommNode RANode && RANode.isGroundStation) 
-                return null;
             var x = new ConfigNode(Targeting.AntennaTarget.nodeName);
             x.AddValue("name", $"{Targeting.AntennaTarget.TargetMode.BodyLatLonAlt}");
             x.AddValue("bodyName", Planetarium.fetch.Home.name);

@@ -27,6 +27,20 @@ namespace RealAntennas.MapUI
         private readonly List<Vector3d> cone10Points = new List<Vector3d>();
         private readonly List<Vector3> cone10Points_out = new List<Vector3>();
         private readonly List<CommLink> commLinkList = new List<CommLink>();
+
+        // Reused scratch list to avoid ToList() allocation per node per frame.
+        private readonly List<CommLink> _scratchLinkList = new List<CommLink>();
+
+        // Reused gradient objects to avoid allocating new Gradient,
+        // GradientColorKey[], and GradientAlphaKey[] on every SetColorGradient call.
+        private readonly Gradient _cachedGradient = new Gradient();
+        private readonly GradientColorKey[] _colorKeys = new GradientColorKey[2];
+        private readonly GradientAlphaKey[] _alphaKeys = new GradientAlphaKey[2];
+
+        // Cached two-element array for SetPositions() on link line renderers,
+        // avoiding a heap allocation per link per frame.
+        private readonly Vector3[] _positionPair = new Vector3[2];
+
         private readonly Cone cone3 = new Cone();
         private readonly Cone cone10 = new Cone();
         private readonly Dictionary<CommLink, GameObject> linkRenderers = new Dictionary<CommLink, GameObject>();
@@ -52,9 +66,11 @@ namespace RealAntennas.MapUI
             }
             RATelemetryUpdate.Install();
         }
-        public void ConstructSiteNode(RACommNetHome home) {
-            if (groundStationSiteNodes.ContainsKey(home.name)) { 
-                return; 
+        public void ConstructSiteNode(RACommNetHome home)
+        {
+            if (groundStationSiteNodes.ContainsKey(home.name))
+            {
+                return;
             }
             Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.name}");
             MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
@@ -97,15 +113,18 @@ namespace RealAntennas.MapUI
                 Vector3d scaledEnd = ScaledSpace.LocalToScaledSpace(link.end.precisePosition);
                 Camera cam = PlanetariumCamera.Camera;
                 Vector3 camPos = cam.transform.position;
-                float dStart = (float) Vector3d.Distance(camPos, scaledStart);
-                float dEnd = (float) Vector3d.Distance(camPos, scaledEnd);
+                float dStart = (float)Vector3d.Distance(camPos, scaledStart);
+                float dEnd = (float)Vector3d.Distance(camPos, scaledEnd);
                 renderer.startWidth = dStart * settings.lineScaleWidth / 1000;
                 renderer.endWidth = dEnd * settings.lineScaleWidth / 1000;
                 Color startColor = (settings.radioPerspective == RadioPerspective.Transmit) ? LinkColor(link.FwdMetric) : LinkColor(link.RevMetric);
                 Color endColor = (settings.radioPerspective == RadioPerspective.Transmit) ? LinkColor(link.RevMetric) : LinkColor(link.FwdMetric);
                 SetColorGradient(renderer, startColor, endColor);
                 renderer.positionCount = 2;
-                renderer.SetPositions(new Vector3[] { scaledStart, scaledEnd });
+                //Only call SetPositions once per link per frame, to avoid the overhead of multiple calls.
+                _positionPair[0] = scaledStart;
+                _positionPair[1] = scaledEnd;
+                renderer.SetPositions(_positionPair);
             }
         }
 
@@ -279,8 +298,18 @@ namespace RealAntennas.MapUI
         {
             //base.UpdateDisplay();
             if (CommNetNetwork.Instance == null) return;
-            DisableAllLinkRenderers();
-            DisableAllConeRenderers();
+
+            // Only blank renderers if the network produced valid results this frame.
+            // If the last rebuild was aborted (topology changing during scene load,
+            // vessel created/destroyed mid-frame), leave the previous frame's
+            // renderers visible rather than blanking the screen, which causes flicker.
+            bool rebuildValid = RACommNetScenario.RACN is RACommNetwork cn && cn.LastRebuildComplete;
+            if (rebuildValid)
+            {
+                DisableAllLinkRenderers();
+                DisableAllConeRenderers();
+            }
+
             if (CommNetUI.Mode == CommNetUI.DisplayMode.None) return;
             var settings = RACommNetScenario.MapUISettings;
             if (this.draw3dLines != MapView.Draw3DLines)
@@ -309,7 +338,9 @@ namespace RealAntennas.MapUI
                 {
                     foreach (RACommNode node in commNet.Nodes)
                     {
-                        GatherLinkLines(node.Values.ToList());
+                        _scratchLinkList.Clear();
+                        _scratchLinkList.AddRange(node.Values);
+                        GatherLinkLines(_scratchLinkList);
                         GatherAntennaCones(node);
                     }
                 }
@@ -328,13 +359,17 @@ namespace RealAntennas.MapUI
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.VesselLinks:
-                            GatherLinkLines(commNode.Values.ToList());
+                            _scratchLinkList.Clear();
+                            _scratchLinkList.AddRange(commNode.Values);
+                            GatherLinkLines(_scratchLinkList);
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.Path:
                             if (commPath.Count == 0)
                             {
-                                GatherLinkLines(commNode.Values.ToList());
+                                _scratchLinkList.Clear();
+                                _scratchLinkList.AddRange(commNode.Values);
+                                GatherLinkLines(_scratchLinkList);
                                 GatherAntennaCones(commNode);
                             }
                             foreach (CommLink link in commPath)
@@ -375,14 +410,16 @@ namespace RealAntennas.MapUI
             rend.enabled = false;
         }
 
-        public static void SetColorGradient(LineRenderer rend, Color startColor, Color endColor, float startAlpha=1, float endAlpha=1)
+        // Internal cached version used by all call sites within this class.
+        // Reuses _cachedGradient, _colorKeys, and _alphaKeys — no allocation per call.
+        private void SetColorGradient(LineRenderer rend, Color startColor, Color endColor, float startAlpha = 1, float endAlpha = 1)
         {
-            Gradient gradient = new Gradient();
-            gradient.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(startColor, 0.0f), new GradientColorKey(endColor, 1.0f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(startAlpha, 0.0f), new GradientAlphaKey(endAlpha, 1.0f) }
-            );
-            rend.colorGradient = gradient;
+            _colorKeys[0] = new GradientColorKey(startColor, 0.0f);
+            _colorKeys[1] = new GradientColorKey(endColor, 1.0f);
+            _alphaKeys[0] = new GradientAlphaKey(startAlpha, 0.0f);
+            _alphaKeys[1] = new GradientAlphaKey(endAlpha, 1.0f);
+            _cachedGradient.SetKeys(_colorKeys, _alphaKeys);
+            rend.colorGradient = _cachedGradient;
         }
 
         public override void SwitchMode(int step)

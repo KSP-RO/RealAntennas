@@ -59,7 +59,7 @@ namespace RealAntennas.Precompute
     {
         public readonly Dictionary<RealAntenna, int> allAntennas = new Dictionary<RealAntenna, int>();
         public readonly Dictionary<int, RealAntenna> allAntennasReverse = new Dictionary<int, RealAntenna>();
-        public NativeArray<AntennaData> antennaDataList;
+        public NativeList<AntennaData> antennaDataList = new NativeList<AntennaData>(Allocator.Persistent);
         public NativeList<int4> allAntennaPairs = new NativeList<int4>(Allocator.Persistent);
         public NativeList<int2> allNodePairs = new NativeList<int2>(Allocator.Persistent);
         public NativeHashMap<int2, int> bestMap;
@@ -121,16 +121,15 @@ namespace RealAntennas.Precompute
 
         public void Destroy()
         {
-            if (antennaDataList.IsCreated) antennaDataList.Dispose();
+            antennaDataList.Dispose();
             allAntennaPairs.Dispose();
             DisposeJobData();
         }
 
         public void Initialize(List<CommNet.CommNode> nodes = null)
         {
-            if (antennaDataList.IsCreated) antennaDataList.Dispose();
             nodes ??= RACommNetScenario.RACN.Nodes;
-            antennaDataList = GatherAllAntennas(allAntennas, allAntennasReverse, nodes);
+            GatherAllAntennas(allAntennas, allAntennasReverse, nodes, antennaDataList);
             PairAllAntennasAndNodes(allAntennaPairs, allNodePairs, allAntennas, nodes);
         }
 
@@ -714,11 +713,11 @@ namespace RealAntennas.Precompute
 
 
         // Iterate through all comm nodes, collect each RealAntenna, and extract a copy of data for precomputation
-        private NativeArray<AntennaData> GatherAllAntennas(Dictionary<RealAntenna, int> antennaDict, Dictionary<int, RealAntenna> reverseDict, List<CommNet.CommNode> nodes)
+        private void GatherAllAntennas(Dictionary<RealAntenna, int> antennaDict, Dictionary<int, RealAntenna> reverseDict, List<CommNet.CommNode> nodes, NativeList<AntennaData> antennaDatas)
         {
             antennaDict.Clear();
             reverseDict.Clear();
-            var antennaDatas = new NativeList<AntennaData>(Allocator.Persistent);
+            antennaDatas.Clear();
             int index = 0;
             if (nodes != null)
                 foreach (RACommNode node in nodes)
@@ -746,7 +745,6 @@ namespace RealAntennas.Precompute
                         });
                         index++;
                     }
-            return antennaDatas.AsArray();
         }
 
         internal void UpdateAllAntennas()

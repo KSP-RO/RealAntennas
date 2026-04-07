@@ -127,6 +127,12 @@ namespace RealAntennas
         }
         private bool calculating = false;
 
+        // True after a CompleteRebuild() that actually ran UpdateNetwork().
+        // False after an Abort(), or before any rebuild has completed.
+        // Used by the UI to decide whether to blank renderers this frame or
+        // leave the previous frame's results visible.
+        public bool LastRebuildComplete { get; private set; } = false;
+
         private bool IsPaused => (KSCPauseMenu.Instance && KSCPauseMenu.Instance.enabled) || (PauseMenu.exists && PauseMenu.isOpen);
         public virtual void StartRebuild(bool compute)
         {
@@ -166,6 +172,7 @@ namespace RealAntennas
                     OnNetworkPostUpdate();
                 tempWatch.Stop();
                 Profiler.EndSample();
+                LastRebuildComplete = true;
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Precompute LateRebuild", PrecomputeLateWatch.Elapsed.TotalMilliseconds);
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Full LateRebuild", tempWatch.Elapsed.TotalMilliseconds);
             }
@@ -176,6 +183,7 @@ namespace RealAntennas
         public virtual void Abort()
         {
             calculating = false;
+            LastRebuildComplete = false;
             precompute.Abort();
         }
 
@@ -235,17 +243,24 @@ namespace RealAntennas
             return sb.ToStringAndRelease();
         }
 
-        public void Validate()
+        // Returns true if any CommNodes were missing and had to be added.
+        // RACommNetNetwork.UpdateEarly() uses this return value to decide whether
+        // a topology-triggered Initialize() is still required after Validate()
+        // recovers nodes that were not yet present when topologyDirty was first set.
+        public bool Validate()
         {
+            bool addedNodes = false;
             foreach (Vessel v in FlightGlobals.Vessels)
             {
                 if (v.Connection?.Comm is RACommNode vcn && !nodes.Contains(vcn))
                 {
                     Debug.LogWarning($"{ModTag} Vessel {v} had commnode {vcn} not in the node list.");
                     Add(vcn);
+                    addedNodes = true;
                 }
             }
             CheckNodeConsistency();
+            return addedNodes;
         }
 
         public void CheckNodeConsistency()

@@ -14,6 +14,7 @@ namespace RealAntennas
         readonly List<RealAntenna> antennaList = new List<RealAntenna>();
         readonly List<RealAntenna> inactiveAntennas = new List<RealAntenna>();
         readonly List<CommNet.ModuleProbeControlPoint> probeControlPoints = new List<CommNet.ModuleProbeControlPoint>();
+        public IReadOnlyList<RealAntenna> InactiveAntennas => inactiveAntennas;
         private PartResourceDefinition electricChargeDef;
 
         [KSPField(isPersistant = true)] public bool powered = true;
@@ -71,6 +72,10 @@ namespace RealAntennas
                 (comm as RACommNode).RAAntennaList = DiscoverAntennas();
                 DiscoverProbeControlPoints();
                 vessel.connection = this;
+                // Initialise partCountCache to the current part count so that the
+                // first Update() frame does not immediately re-trigger DiscoverAntennas()
+                // due to the default value of 0 not matching the actual part count.
+                partCountCache = vessel.parts.Count;
                 networkInitialised = false;
                 if (CommNet.CommNetNetwork.Initialized)
                     OnNetworkInitialized();

@@ -45,6 +45,8 @@ namespace RealAntennas
         public virtual bool CanTarget => Shape != AntennaShape.Omni && !IsTracking;
         public Vector3 ToTarget => (CanTarget && Target != null) ? (Vector3) (Target.transform.position - Position) : Vector3.zero;
 
+        // In the absence of a TARGET config node, antennas will target the centre of the home body.
+        // However, if the antenna belongs to a node with a ParentBody, Target will be set to null.
         private Targeting.AntennaTarget _target;
         public Targeting.AntennaTarget Target
         {
@@ -119,8 +121,13 @@ namespace RealAntennas
             AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
             if (config.HasNode("TARGET"))
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
-            else if (Shape != AntennaShape.Omni && (ParentNode == null || !ParentNode.isHome) && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
+            else if (ParentNode is RACommNode RANode && RANode.isGroundStation) {
+                Debug.LogFormat($"{ModTag} ground station {RANode.displayName} antenna {Name} missing TARGET node - defaulted to null");
+                Target = null;
+            }
+            else if (Shape != AntennaShape.Omni && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
                 Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
+
             EncoderOverride = (config.HasValue("EncoderOverride")) ? config.GetValue("EncoderOverride") : null;
         }
 

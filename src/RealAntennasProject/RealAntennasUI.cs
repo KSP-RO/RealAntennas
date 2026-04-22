@@ -128,7 +128,7 @@ namespace RealAntennas
                 net = $"{racn}";
                 foreach (RACommNode node in racn.Nodes)
                 {
-                    if (node.isHome)
+                    if (node.isGroundStation)
                     {
                         groundStations++;
                     }

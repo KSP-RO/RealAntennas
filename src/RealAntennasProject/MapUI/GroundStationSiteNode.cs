@@ -29,6 +29,8 @@ namespace RealAntennas.MapUI
             if (body == null) return string.Empty;
             body.GetLatLonAlt(node.position, out double lat, out double lon, out _);
             lon = ((lon + 540d) % 360d) - 180d;
+            if (RACommNetScenario.MapUISettings?.groundStationLatLonSigned ?? false)
+                return $"{lat:F2}°, {lon:F2}°";
             return $"{Math.Abs(lat):F2}° {(lat >= 0 ? "N" : "S")}, {Math.Abs(lon):F2}° {(lon >= 0 ? "E" : "W")}";
         }
     }

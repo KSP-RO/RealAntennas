@@ -16,5 +16,6 @@ namespace RealAntennas.MapUI
         [Persistent] public bool drawCone3 = true;
         [Persistent] public bool drawCone10 = true;
         [Persistent] public float lineScaleWidth = 2.5f;
+        [Persistent] public bool groundStationLatLonSigned = false;
     }
 }

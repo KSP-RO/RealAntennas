@@ -516,7 +516,7 @@ namespace RealAntennas
             costToResolve = 0;
             techToResolve = string.Empty;
 
-            if (Condition == AntennaCondition.Disabled) return true;
+            if (Condition == AntennaCondition.Disabled || techLevel == 0) return true;
 
             PartUpgradeHandler.Upgrade upgd = GetUpgradeForTL(techLevel);
 

@@ -27,12 +27,14 @@ namespace RealAntennas.MapUI
         private readonly List<Vector3d> cone10Points = new List<Vector3d>();
         private readonly List<Vector3> cone10Points_out = new List<Vector3>();
         private readonly List<CommLink> commLinkList = new List<CommLink>();
+        private readonly List<CommLink> _scratchLinkList = new List<CommLink>();
         private readonly Cone cone3 = new Cone();
         private readonly Cone cone10 = new Cone();
         private readonly Dictionary<CommLink, GameObject> linkRenderers = new Dictionary<CommLink, GameObject>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> targetRenderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone3Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone10Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
+
 
         public enum DrawConesMode { None, Cone2D, Cone3D };
         public enum RadioPerspective { Transmit, Receive };
@@ -309,7 +311,9 @@ namespace RealAntennas.MapUI
                 {
                     foreach (RACommNode node in commNet.Nodes)
                     {
-                        GatherLinkLines(node.Values.ToList());
+                        _scratchLinkList.Clear();
+                        _scratchLinkList.AddRange(commNode.Values);
+                        GatherLinkLines(_scratchLinkList);
                         GatherAntennaCones(node);
                     }
                 }
@@ -328,13 +332,17 @@ namespace RealAntennas.MapUI
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.VesselLinks:
-                            GatherLinkLines(commNode.Values.ToList());
+                            _scratchLinkList.Clear();
+                            _scratchLinkList.AddRange(commNode.Values);
+                            GatherLinkLines(_scratchLinkList);
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.Path:
                             if (commPath.Count == 0)
                             {
-                                GatherLinkLines(commNode.Values.ToList());
+                                _scratchLinkList.Clear();
+                                _scratchLinkList.AddRange(commNode.Values);
+                                GatherLinkLines(_scratchLinkList);
                                 GatherAntennaCones(commNode);
                             }
                             foreach (CommLink link in commPath)

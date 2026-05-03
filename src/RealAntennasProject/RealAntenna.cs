@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommNet;
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -121,12 +122,8 @@ namespace RealAntennas
             AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
             if (config.HasNode("TARGET"))
                 Target = Targeting.AntennaTarget.LoadFromConfig(config.GetNode("TARGET"), this);
-            else if (ParentNode is RACommNode RANode && RANode.isGroundStation) {
-                Debug.LogFormat($"{ModTag} ground station {RANode.displayName} antenna {Name} missing TARGET node - defaulted to null");
-                Target = null;
-            }
-            else if (Shape != AntennaShape.Omni && !(Target?.Validate() == true) && HighLogic.LoadedSceneHasPlanetarium)
-                Target = Targeting.AntennaTarget.LoadFromConfig(SetDefaultTarget(), this);
+            else if (Shape != AntennaShape.Omni && Target?.Validate() != true && HighLogic.LoadedSceneHasPlanetarium)
+                SetDefaultTarget();
 
             EncoderOverride = (config.HasValue("EncoderOverride")) ? config.GetValue("EncoderOverride") : null;
         }
@@ -159,14 +156,25 @@ namespace RealAntennas
             if (config.TryGetValue("RFBand", ref s)) RFBand = Antenna.BandInfo.All[s];
             if (config.TryGetValue("EncoderOverride", ref s)) EncoderOverride = s;
         }
-
-        public virtual ConfigNode SetDefaultTarget()
+        
+        // Returns the new target.
+        public virtual Targeting.AntennaTarget SetDefaultTarget()
         {
-            var x = new ConfigNode(Targeting.AntennaTarget.nodeName);
-            x.AddValue("name", $"{Targeting.AntennaTarget.TargetMode.BodyLatLonAlt}");
-            x.AddValue("bodyName", Planetarium.fetch.Home.name);
-            x.AddValue("latLonAlt", new Vector3(0, 0, (float)-Planetarium.fetch.Home.Radius));
-            return x;
+            if (ParentNode is RACommNode raNode)
+            {
+                if (raNode.isGroundStation)
+                    return Target = null;
+                var x = new ConfigNode(Targeting.AntennaTarget.nodeName);
+                x.AddValue("name", $"{Targeting.AntennaTarget.TargetMode.BodyLatLonAlt}");
+                x.AddValue("bodyName", Planetarium.fetch.Home.name);
+                x.AddValue("latLonAlt", new Vector3(0, 0, (float)-Planetarium.fetch.Home.Radius));
+                return Target = Targeting.AntennaTarget.LoadFromConfig(x, this);
+            }
+            else
+            {
+                Debug.LogError($"{ModTag} {ParentNode.displayName} is not an RA comm node but has a RealAntenna! Defaulting target for {Name} to null");
+                return Target = null;
+            }
         }
     }
 }

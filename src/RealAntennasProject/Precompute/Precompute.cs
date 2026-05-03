@@ -736,7 +736,7 @@ namespace RealAntennas.Precompute
                             // ParentVessel deep enough in the atmosphere.
                             // It might make sense to take the altitude into
                             // account eventually.
-                            inAtmosphere = node.ParentBody != null,
+                            inAtmosphere = node.isGroundStation,
                             isTracking = ra.IsTracking,
                             AMW = Physics.AntennaMicrowaveTemp(ra),
                             encoder = new Encoder(ra.Encoder),

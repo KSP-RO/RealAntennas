@@ -312,7 +312,7 @@ namespace RealAntennas.MapUI
                     foreach (RACommNode node in commNet.Nodes)
                     {
                         _scratchLinkList.Clear();
-                        _scratchLinkList.AddRange(commNode.Values);
+                        _scratchLinkList.AddRange(node.Values);
                         GatherLinkLines(_scratchLinkList);
                         GatherAntennaCones(node);
                     }

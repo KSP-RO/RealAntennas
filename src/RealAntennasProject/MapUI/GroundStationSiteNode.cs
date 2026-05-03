@@ -1,4 +1,5 @@
 ﻿using KSP.UI.Screens.Mapview;
+using System;
 using UnityEngine;
 
 namespace RealAntennas.MapUI
@@ -19,7 +20,18 @@ namespace RealAntennas.MapUI
         {
             data.captionLine1 = $"{node.displayName}";
             data.captionLine2 = RATools.PrettyPrint(node.RAAntennaList);
-            //data.captionLine3 = "CapLine3";
+            data.captionLine3 = FormatLatLon();
+        }
+
+        private string FormatLatLon()
+        {
+            CelestialBody body = node.ParentBody;
+            if (body == null) return string.Empty;
+            body.GetLatLonAlt(node.position, out double lat, out double lon, out _);
+            lon = ((lon + 540d) % 360d) - 180d;
+            if (RACommNetScenario.MapUISettings?.groundStationLatLonSigned ?? false)
+                return $"{lat:F2}°, {lon:F2}°";
+            return $"{Math.Abs(lat):F2}° {(lat >= 0 ? "N" : "S")}, {Math.Abs(lon):F2}° {(lon >= 0 ? "E" : "W")}";
         }
     }
 }

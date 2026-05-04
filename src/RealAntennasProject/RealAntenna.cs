@@ -157,7 +157,6 @@ namespace RealAntennas
             if (config.TryGetValue("EncoderOverride", ref s)) EncoderOverride = s;
         }
         
-        // Returns the new target.
         public virtual void SetDefaultTarget()
         {
             if (ParentNode is RACommNode raNode && raNode.isGroundStation)

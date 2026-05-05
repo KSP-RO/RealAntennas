@@ -115,7 +115,8 @@ namespace RealAntennas
                 GUILayout.BeginVertical();
                 GUILayout.Label("Ground Station Sort Order: ");
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button(groundStationSortOrder.ToStringCached())) {    
+                if (GUILayout.Button(groundStationSortOrder.ToStringCached())) 
+                {    
                     var values = (SortOrder[])Enum.GetValues(typeof(SortOrder));
                     int index = Array.IndexOf(values, groundStationSortOrder);
                     groundStationSortOrder = values[(index + 1) % values.Length];

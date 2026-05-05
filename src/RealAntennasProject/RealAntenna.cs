@@ -158,14 +158,15 @@ namespace RealAntennas
         
         public virtual void SetDefaultTarget()
         {
-            if (ParentNode is RACommNode raNode && raNode.isGroundStation)
+            if (!(ParentNode is RACommNode raNode))
             {
+                Debug.Log($"{ModTag} {ParentNode?.displayName} is not an RA comm node but has a RealAntenna! Defaulting target for {Name} to null");
                 Target = null;
             }
+            else if (raNode.isGroundStation)
+                Target = null;
             else
             {
-                if (!(ParentNode is RACommNode))
-                    Debug.Log($"{ModTag} {ParentNode?.displayName} is not an RA comm node but has a RealAntenna! Defaulting target for {Name} to null");
                 var x = new ConfigNode(Targeting.AntennaTarget.nodeName);
                 x.AddValue("name", $"{Targeting.AntennaTarget.TargetMode.BodyLatLonAlt}");
                 x.AddValue("bodyName", Planetarium.fetch.Home.name);

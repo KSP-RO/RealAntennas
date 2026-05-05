@@ -1,7 +1,7 @@
 ﻿using ClickThroughFix;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using UniLinq;
 using UnityEngine;
 
 namespace RealAntennas
@@ -44,7 +44,6 @@ namespace RealAntennas
         {
             { SortOrder.Name, ra => ra.ParentNode.displayName },
             { SortOrder.RxGain, ra => ra.Gain },
-//            { SortOrder.TxStrength, ra => ra.Gain + ra.TxPower },
         };
 
         public void Start()
@@ -116,10 +115,11 @@ namespace RealAntennas
                 GUILayout.BeginVertical();
                 GUILayout.Label("Ground Station Sort Order: ");
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button(Enum.GetName(typeof(SortOrder), groundStationSortOrder))) 
-                    groundStationSortOrder = (SortOrder) (((int)(groundStationSortOrder + 1)) % Enum.GetValues(typeof(SortOrder)).Length);
-                    // This is so ugly. I hate it. But it works even if we add more SortOrders later, so long as we stick to the 0-indexed behaviour of enums.
-                
+                if (GUILayout.Button(groundStationSortOrder.ToStringCached())) {    
+                    var values = (SortOrder[])Enum.GetValues(typeof(SortOrder));
+                    int index = Array.IndexOf(values, groundStationSortOrder);
+                    groundStationSortOrder = values[(index + 1) % values.Length];
+                }
                 if (GUILayout.Button(ascending ? "Asc." : "Desc.")) 
                     ascending = !ascending; 
                 GUILayout.EndHorizontal();

@@ -55,17 +55,14 @@ namespace RealAntennas.MapUI
             RATelemetryUpdate.Install();
         }
         public void ConstructSiteNode(RACommNetHome home) {
-            if (groundStationSiteNodes.ContainsKey(home.name)) { 
-                return; 
-            }
-            Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.name}");
+            Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.displaynodeName}");
             MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
             SiteNode siteNode = SiteNode.Spawn(gs);
             Texture2D stationTexture = (GameDatabase.Instance.GetTexture(home.icon, false) is Texture2D tex) ? tex : GameDatabase.Instance.GetTexture(icon, false);
             // fetch default texture if conditional fails
             siteNode.wayPoint.node.SetIcon(Sprite.Create(stationTexture, new Rect(0, 0, stationTexture.width, stationTexture.height), new Vector2(0.5f, 0.5f), 100f));
             siteNode.wayPoint.node.OnUpdateVisible += home.OnUpdateVisible;
-            groundStationSiteNodes.Add(home.name, siteNode);
+            groundStationSiteNodes[home.nodeName] = siteNode; // skopos still needs these
         }
 
         // If either one of these lists is nonempty, the links that are shown

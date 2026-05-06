@@ -10,6 +10,8 @@ namespace RealAntennas
         public List<RealAntenna> RAAntennaList { get; set; }
         public CelestialBody ParentBody { get; set; }
         public Vessel ParentVessel { get; set; }
+        public bool isGroundStation => ParentBody != null;
+        // Skopos stations have isHome set to false, hence the need for this check.
 
         public RACommNode() : base() { }
         public RACommNode(Transform t) : base(t)
@@ -31,7 +33,7 @@ namespace RealAntennas
 
         public bool CanComm()
         {
-            if (ParentBody != null) return true;
+            if (isGroundStation) return true;
             return (ParentVessel?.Connection is RACommNetVessel raCNV) && raCNV.powered && raCNV.CanComm;
         }
 

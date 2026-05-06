@@ -256,8 +256,8 @@ namespace RealAntennas
         }
         private void ValidateAntennaTarget(RealAntenna ra)
         {
-            if (ra.CanTarget && !(ra.Target?.Validate() == true))
-                ra.Target = Targeting.AntennaTarget.LoadFromConfig(ra.SetDefaultTarget(), ra);
+            if (ra.CanTarget && ra.Target?.Validate() != true)
+                ra.SetDefaultTarget();
         }
         public static bool DeployedUnloaded(ProtoPartSnapshot part)
         {

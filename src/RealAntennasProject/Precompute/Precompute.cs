@@ -718,7 +718,7 @@ namespace RealAntennas.Precompute
         {
             antennaDict.Clear();
             reverseDict.Clear();
-            var antennaDatas = new NativeList<AntennaData>(Allocator.Persistent);
+            var antennaDatas = new List<AntennaData>();
             int index = 0;
             if (nodes != null)
                 foreach (RACommNode node in nodes)
@@ -746,7 +746,7 @@ namespace RealAntennas.Precompute
                         });
                         index++;
                     }
-            return antennaDatas.AsArray();
+            return new NativeArray<AntennaData>(antennaDatas.ToArray(), Allocator.Persistent);
         }
 
         internal void UpdateAllAntennas()

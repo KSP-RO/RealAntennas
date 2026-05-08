@@ -158,12 +158,7 @@ namespace RealAntennas
         
         public virtual void SetDefaultTarget()
         {
-            if (!(ParentNode is RACommNode raNode))
-            {
-                Debug.Log($"{ModTag} {ParentNode?.displayName} is not an RA comm node but has a RealAntenna! Defaulting target for {Name} to null");
-                Target = null;
-            }
-            else if (raNode.isGroundStation)
+            if (ParentNode is RACommNode raNode && raNode.isGroundStation)
                 Target = null;
             else
             {

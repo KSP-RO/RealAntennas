@@ -5,7 +5,7 @@ using Unity.Mathematics;
 
 namespace RealAntennas
 {
-    class Physics
+    public class Physics
     {
         //public static readonly double boltzmann_dBW = 10 * Math.Log10(1.38064852e-23);      //-228.59917;
         public const float boltzmann_dBW = -228.599168683097f;

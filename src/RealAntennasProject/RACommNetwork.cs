@@ -23,7 +23,11 @@ namespace RealAntennas
         public RealAntenna DebugAntenna => connectionDebugger?.antenna;
         public Network.ConnectionDebugger connectionDebugger = null;
         public readonly EventVoid NetworkUpdateComplete = new EventVoid("Network Rebuild Complete");
+        public event Action<RACommNetwork> BeforePostUpdateNodes;
+        public IReadOnlyList<RALinkBudget> LastLinkBudgetSnapshot => linkBudgetSnapshot;
         public double LastUpdateUT { get; private set; } = 0;
+        internal bool HasExternalNodes => nodes.OfType<RACommNode>().Any(node => node.IsExternal);
+        private readonly List<RALinkBudget> linkBudgetSnapshot = new List<RALinkBudget>();
 
         public override CommNode Add(CommNode conn)
         {
@@ -34,6 +38,42 @@ namespace RealAntennas
             }
             return base.Add(conn);
         }
+
+        public RACommNode RegisterExternalNode(RACommNode node)
+        {
+            if (node == null)
+                return null;
+
+            node.IsExternal = true;
+            if (!nodes.Contains(node))
+            {
+                Add(node);
+                Abort();
+                precompute.Initialize();
+                isDirty = true;
+            }
+
+            return node;
+        }
+
+        public void UnregisterExternalNode(RACommNode node)
+        {
+            if (node == null || !nodes.Contains(node))
+                return;
+
+            foreach (CommNode other in nodes.ToList())
+            {
+                if (!ReferenceEquals(other, node))
+                    DoDisconnect(node, other);
+            }
+
+            nodes.Remove(node);
+            node.IsExternal = false;
+            Abort();
+            precompute.Initialize();
+            isDirty = true;
+        }
+
         protected override bool SetNodeConnection(CommNode a, CommNode b)
         {
             Debug.LogError($"[RACommNetwork] SetNodeConnection called, but it should never be!");
@@ -84,6 +124,30 @@ namespace RealAntennas
                 Debug.LogWarning($"{ModTag} Detected actual rate {FwdDataRate} greater than expected max {FwdBestDataRate} for antennas {link.FwdAntennaTx} and {link.FwdAntennaRx}");
 
             link.Update(Math.Min(link.FwdMetric, link.RevMetric));
+        }
+
+        public void InjectExternalLink(RealAntenna fwdTx,
+                                       RealAntenna fwdRx,
+                                       RealAntenna revTx,
+                                       RealAntenna revRx,
+                                       RACommNode a,
+                                       RACommNode b,
+                                       double distance,
+                                       double fwdDataRate,
+                                       double revDataRate,
+                                       double fwdBestDataRate,
+                                       double fwdMetric,
+                                       double revMetric)
+        {
+            MakeLink(fwdTx, fwdRx, revTx, revRx, a, b, distance, fwdDataRate, revDataRate, fwdBestDataRate, fwdMetric, revMetric);
+        }
+
+        internal void ClearLinkBudgetSnapshot() => linkBudgetSnapshot.Clear();
+
+        internal void RecordLinkBudget(RALinkBudget budget)
+        {
+            if (budget != null)
+                linkBudgetSnapshot.Add(budget);
         }
 
         protected override CommLink Connect(CommNode a, CommNode b, double distance)
@@ -163,6 +227,7 @@ namespace RealAntennas
                 UpdateNetwork();
                 Profiler.EndSample();
                 PrecomputeLateWatch.Stop();
+                BeforePostUpdateNodes?.Invoke(this);
                 PostUpdateNodes();
                 if (OnNetworkPostUpdate is Action)
                     OnNetworkPostUpdate();

@@ -105,6 +105,21 @@ namespace RealAntennas
         public virtual bool Compatible(RealAntenna other) => RFBand == other.RFBand;
         public virtual bool DirectionCheck(RealAntenna other) => DirectionCheck(other.Position);
         public virtual bool DirectionCheck(Vector3 pos) => Physics.PointingLoss(this, pos) < Physics.MaxPointingLoss;
+        public virtual float GetPointingLossTo(Vector3d worldPosition)
+        {
+            if (Shape == AntennaShape.Omni)
+                return 0;
+
+            Vector3 direction = IsTracking
+                ? (Vector3)(worldPosition - Position)
+                : ToTarget;
+
+            if (direction.sqrMagnitude <= float.Epsilon)
+                return Physics.MaxPointingLoss;
+
+            double angle = Vector3.Angle((Vector3)(worldPosition - Position), direction);
+            return Physics.PointingLoss(angle, Beamwidth);
+        }
 
         public virtual void LoadFromConfigNode(ConfigNode config)
         {

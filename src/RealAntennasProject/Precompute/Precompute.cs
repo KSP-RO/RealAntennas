@@ -448,6 +448,8 @@ namespace RealAntennas.Precompute
             Profiler.EndSample();
             Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages");
 
+            SnapshotLinkBudgets(RACN);
+
             foreach (var pair in allNodePairs)
             {
                 if (pair.x <= pair.y && pair.y < RACN.Nodes.Count)
@@ -501,6 +503,40 @@ namespace RealAntennas.Precompute
                 GatherDebugInfo(RACN.DebugAntenna, RACN.Nodes, ref RACN.connectionDebugger);
             DisposeJobData();
             Profiler.EndSample();
+        }
+
+        private void SnapshotLinkBudgets(RACommNetwork RACN)
+        {
+            RACN.ClearLinkBudgetSnapshot();
+            if (!RACN.HasExternalNodes)
+                return;
+
+            for (int i = 0; i < allValidAntennaPairs.Length; i++)
+            {
+                if (dataRate[i] <= 0)
+                    continue;
+
+                int4 quad = allValidAntennaPairs[i];
+                if (quad.x < 0 || quad.y < 0 || quad.x >= RACN.Nodes.Count || quad.y >= RACN.Nodes.Count)
+                    continue;
+
+                RACommNode txNode = RACN.Nodes[quad.x] as RACommNode;
+                RACommNode rxNode = RACN.Nodes[quad.y] as RACommNode;
+                if (txNode == null || rxNode == null || (!txNode.IsExternal && !rxNode.IsExternal))
+                    continue;
+
+                float metric = 1f - ((float)rateSteps[i] / (maxSteps[i] + 1));
+                RACN.RecordLinkBudget(new RALinkBudget
+                {
+                    txNode = txNode,
+                    rxNode = rxNode,
+                    tx = allAntennasReverse[quad.z],
+                    rx = allAntennasReverse[quad.w],
+                    dataRate = dataRate[i],
+                    maxDataRate = maxDataRate[i],
+                    metric = metric
+                });
+            }
         }
 
         public void GatherDebugInfo(RealAntenna debugAntenna, List<CommNet.CommNode> Nodes, ref Network.ConnectionDebugger connectionDebugger, bool log=true)

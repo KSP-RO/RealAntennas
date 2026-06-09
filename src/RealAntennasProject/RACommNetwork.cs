@@ -28,6 +28,8 @@ namespace RealAntennas
         public event Action<RACommNetwork> AfterPrecomputeLinkages;
         public double LastUpdateUT { get; private set; } = 0;
 
+        internal void InvokeAfterPrecomputeLinkages() => AfterPrecomputeLinkages?.Invoke(this);
+
         public override CommNode Add(CommNode conn)
         {
             if (!(conn is RACommNode))

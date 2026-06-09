@@ -503,7 +503,7 @@ namespace RealAntennas.Precompute
             if (RACN.connectionDebugger is Network.ConnectionDebugger)
                 GatherDebugInfo(RACN.DebugAntenna, RACN.Nodes, ref RACN.connectionDebugger);
 
-            RACN.AfterPrecomputeLinkages?.Invoke(RACN);
+            RACN.InvokeAfterPrecomputeLinkages();
             DisposeJobData();
             Profiler.EndSample();
         }

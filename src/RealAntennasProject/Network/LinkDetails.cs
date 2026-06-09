@@ -41,6 +41,10 @@ namespace RealAntennas.Network
         public float dataRate;
         public float maxDataRate;
         public int rateSteps;
+        public int maxRateSteps;
+
+        public double Metric =>
+            maxRateSteps >= 0 ? 1.0 - ((float)rateSteps / (maxRateSteps + 1)) : 0;
 
         public override string ToString()
         {

@@ -69,7 +69,7 @@
     <Compile Include="Network\RACommLink.cs" />
     <Compile Include="RAModulator.cs" />
     <Compile Include="RAParameters.cs" />
-    <Compile Include="RALinkBudget.cs" />
+    <Compile Include="Network\LinkMetricsCollector.cs" />
     <Compile Include="RealAntennaDigital.cs" />
     <Compile Include="RealAntenna.cs" />
     <Compile Include="Network\RACommNetHome.cs" />

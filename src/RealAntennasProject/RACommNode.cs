@@ -10,7 +10,6 @@ namespace RealAntennas
         public List<RealAntenna> RAAntennaList { get; set; }
         public CelestialBody ParentBody { get; set; }
         public Vessel ParentVessel { get; set; }
-        public bool IsExternal { get; set; }
         public bool isGroundStation => ParentBody != null;
         // Skopos stations have isHome set to false, hence the need for this check.
 

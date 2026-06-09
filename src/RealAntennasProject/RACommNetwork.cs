@@ -35,28 +35,6 @@ namespace RealAntennas
             return base.Add(conn);
         }
 
-        public void NotifyTopologyChanged()
-        {
-            Abort();
-            precompute.Initialize();
-            isDirty = true;
-        }
-
-        public void RemoveNode(RACommNode node)
-        {
-            if (node == null || !nodes.Contains(node))
-                return;
-
-            foreach (CommNode other in nodes.ToList())
-            {
-                if (!ReferenceEquals(other, node))
-                    DoDisconnect(node, other);
-            }
-
-            nodes.Remove(node);
-            NotifyTopologyChanged();
-        }
-
         protected override bool SetNodeConnection(CommNode a, CommNode b)
         {
             Debug.LogError($"[RACommNetwork] SetNodeConnection called, but it should never be!");
@@ -212,7 +190,7 @@ namespace RealAntennas
             precompute.Complete(this);
         }
 
-        internal void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);
+        public void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);
 
         public override void Rebuild()
         {

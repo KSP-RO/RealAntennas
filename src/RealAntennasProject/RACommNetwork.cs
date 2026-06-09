@@ -22,13 +22,8 @@ namespace RealAntennas
         public List<CommNode> Nodes { get => nodes; }
         public RealAntenna DebugAntenna => connectionDebugger?.antenna;
         public Network.ConnectionDebugger connectionDebugger = null;
-        public readonly List<Network.LinkMetricsCollector> linkMetricsCollectors = new List<Network.LinkMetricsCollector>();
         public readonly EventVoid NetworkUpdateComplete = new EventVoid("Network Rebuild Complete");
-        public event Action<RACommNetwork> BeforePrecompute;
-        public event Action<RACommNetwork> AfterPrecomputeLinkages;
         public double LastUpdateUT { get; private set; } = 0;
-
-        internal void InvokeAfterPrecomputeLinkages() => AfterPrecomputeLinkages?.Invoke(this);
 
         public override CommNode Add(CommNode conn)
         {
@@ -46,15 +41,6 @@ namespace RealAntennas
             precompute.Initialize();
             isDirty = true;
         }
-
-        public Network.LinkMetricsCollector RegisterLinkMetricsCollector(RealAntenna antenna)
-        {
-            var collector = new Network.LinkMetricsCollector(antenna);
-            linkMetricsCollectors.Add(collector);
-            return collector;
-        }
-
-        public void ClearLinkMetricsCollectors() => linkMetricsCollectors.Clear();
 
         public void RemoveNode(RACommNode node)
         {
@@ -177,7 +163,6 @@ namespace RealAntennas
             UpdateOccluders();
             if (compute)
             {
-                BeforePrecompute?.Invoke(this);
                 Profiler.BeginSample("RealAntennas StartRebuild");
                 tempWatch.Reset();
                 tempWatch.Start();

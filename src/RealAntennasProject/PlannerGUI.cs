@@ -156,6 +156,12 @@ namespace RealAntennas
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
+            if (!primaryAntenna.Compatible(fixedAntenna) && fixedAntenna.ParentNode is RACommNode raNode && raNode.RAAntennaList.FirstOrDefault(x => x.Compatible(primaryAntenna)) is RealAntenna ra)
+            {
+                fixedAntenna = ra;
+                RequestUpdate = true;
+            }
+
             var bodyList = new List<CelestialBody> { Planetarium.fetch.Sun };
             bodyList.AddRange(Planetarium.fetch.Home.orbitingBodies);
             bodyList.AddRange(Planetarium.fetch.Sun.orbitingBodies);

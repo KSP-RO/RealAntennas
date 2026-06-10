@@ -660,7 +660,6 @@ namespace RealAntennas.Precompute
             NoiseFromOccluders(ant.position, ant.gain, ant.dir, ant.freq, ant.beamwidth, occluders);
         internal static float NoiseFromOccluders(double3 position, float gain, float3 dir, float freq, float beamwidth, in NativeArray<OccluderInfo> occluders)
         {
-            if (gain <= Physics.MaxOmniGain) return 0;
             float noise = 0;
             for (int i = 0; i < occluders.Length; i++)
             {

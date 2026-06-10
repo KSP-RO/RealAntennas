@@ -275,7 +275,7 @@ namespace RealAntennas
             {
                 var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
                 foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) 
-                    if (peer.Compatible(ra) && GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
+                    if (GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
                     {
                         antenna = ra;
                         res = true;

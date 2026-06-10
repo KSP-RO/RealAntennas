@@ -1,7 +1,7 @@
 ﻿using ClickThroughFix;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using UniLinq;
 using UnityEngine;
 
 namespace RealAntennas
@@ -36,6 +36,15 @@ namespace RealAntennas
         private SelectionMode primarySelectionMode = SelectionMode.Vessel;
         private SelectionMode fixedSelectionMode = SelectionMode.GroundStation;
         private const string sNoConnection = "<color=orange><b>(No Connection)</b></color>";
+
+        enum SortOrder { Name, RxGain }
+        private SortOrder groundStationSortOrder = SortOrder.RxGain;
+        private bool ascending = false;
+        private static readonly Dictionary<SortOrder, Func<RealAntenna, IComparable>> sortKeyFunctions = new Dictionary<SortOrder, Func<RealAntenna, IComparable>> 
+        {
+            { SortOrder.Name, ra => ra.ParentNode.displayName },
+            { SortOrder.RxGain, ra => ra.Gain },
+        };
 
         public void Start()
         {
@@ -102,6 +111,21 @@ namespace RealAntennas
                     RequestUpdate = true;
                 }
                 GUILayout.FlexibleSpace();
+
+                GUILayout.BeginVertical();
+                GUILayout.Label("Ground Station Sort Order: ");
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button(groundStationSortOrder.ToStringCached())) 
+                {    
+                    var values = (SortOrder[])Enum.GetValues(typeof(SortOrder));
+                    int index = Array.IndexOf(values, groundStationSortOrder);
+                    groundStationSortOrder = values[(index + 1) % values.Length];
+                }
+                if (GUILayout.Button(ascending ? "Asc." : "Desc.")) 
+                    ascending = !ascending; 
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
+
                 GUILayout.EndHorizontal();
             }
 
@@ -250,22 +274,28 @@ namespace RealAntennas
             else
             {
                 var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
-                if (GetBestMatchingGroundStation(peer, homes) is RealAntenna bestDSNAntenna &&
-                    GUILayout.Button($"<color=orange>[Best Station]</color>: {bestDSNAntenna.ToStringShort()}", buttonStyle))
-                {
-                    antenna = bestDSNAntenna;
-                    res = true;
-                }
-                foreach (Network.RACommNetHome home in homes)
-                    foreach (RealAntenna ra in home.Comm.RAAntennaList)
-                        if (peer.Compatible(ra) && GUILayout.Button($"{home.displaynodeName} {ra.ToStringShort()}", buttonStyle))
-                        {
-                            antenna = ra;
-                            res = true;
-                        }
+                foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) 
+                    if (peer.Compatible(ra) && GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
+                    {
+                        antenna = ra;
+                        res = true;
+                    }
             }
             GUILayout.EndScrollView();
             return res;
+        }
+
+        public IEnumerable<RealAntenna> FilterAndSortAntennas(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)
+        {
+            List<RealAntenna> antennas = new List<RealAntenna>();
+            foreach (Network.RACommNetHome home in stations) 
+                foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.Compatible(peer))) 
+                    antennas.Add(ra);
+
+            if (ascending) 
+                return antennas.OrderBy(sortKeyFunctions[groundStationSortOrder]);
+            else 
+                return antennas.OrderByDescending(sortKeyFunctions[groundStationSortOrder]);
         }
 
         public RealAntenna GetBestMatchingGroundStation(RealAntenna peer, IEnumerable<Network.RACommNetHome> stations)
@@ -349,18 +379,23 @@ namespace RealAntennas
             var defaultPos = home.GetWorldSurfacePosition(0, 0, 100);
             var defaultOffset = home.GetWorldSurfacePosition(0, 0, 1e6);
             var defaultDir = (defaultOffset - defaultPos).normalized;
-            var offset = fixedNode.isHome ? 1e8 : 0;
-            fixedNode.transform.SetPositionAndRotation(defaultPos + offset * defaultDir, Quaternion.identity);
-            primaryNearNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMin) * defaultDir, Quaternion.identity);
-            primaryFarNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMax) * defaultDir, Quaternion.identity);
-            fixedNode.precisePosition = fixedNode.position;
-            primaryNearNode.precisePosition = primaryNearNode.position;
-            primaryFarNode.precisePosition = primaryFarNode.position;
             fixedNode.isHome = fixedAntenna.ParentNode?.isHome ?? false;
             primaryNearNode.isHome = primaryFarNode.isHome = primaryAntenna.ParentNode?.isHome ?? false;
             primaryNearNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
             primaryFarNode.ParentBody = (primaryAntenna.ParentNode as RACommNode)?.ParentBody;
             fixedNode.ParentBody = (fixedAntenna.ParentNode as RACommNode)?.ParentBody;
+            primaryNearNode.ParentVessel = (primaryAntenna.ParentNode as RACommNode)?.ParentVessel; // Copy this info over as well in case anything needs it.
+            primaryFarNode.ParentVessel = (primaryAntenna.ParentNode as RACommNode)?.ParentVessel;
+            fixedNode.ParentVessel = (fixedAntenna.ParentNode as RACommNode)?.ParentVessel;
+
+            var offset = fixedNode.isGroundStation ? 1e8 : 0;
+            fixedNode.transform.SetPositionAndRotation(defaultPos + offset * defaultDir, Quaternion.identity);
+            primaryNearNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMin) * defaultDir, Quaternion.identity);
+            primaryFarNode.transform.SetPositionAndRotation(defaultPos + (offset + distanceMax) * defaultDir, Quaternion.identity);
+
+            fixedNode.precisePosition = fixedNode.position;
+            primaryNearNode.precisePosition = primaryNearNode.position;
+            primaryFarNode.precisePosition = primaryFarNode.position;
 
             var nodes = new List<CommNet.CommNode> { fixedNode, primaryNearNode };
             var bodies = new List<CelestialBody> { Planetarium.fetch.Home };

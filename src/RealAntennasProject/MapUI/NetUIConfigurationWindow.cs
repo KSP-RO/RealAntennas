@@ -42,6 +42,11 @@ namespace RealAntennas.MapUI
                 settings.drawCone10 = !settings.drawCone10;
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button($"Lat/Lon Format: {(settings.groundStationLatLonSigned ? "Signed" : "Hemisphere")}"))
+                settings.groundStationLatLonSigned = !settings.groundStationLatLonSigned;
+            GUILayout.EndHorizontal();
+
             if (MapView.fetch is MapView && MapView.MapCamera is PlanetariumCamera)
             {
                 GUILayout.BeginVertical();

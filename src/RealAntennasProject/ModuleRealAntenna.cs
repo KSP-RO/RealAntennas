@@ -86,6 +86,7 @@ namespace RealAntennas
         private float DefaultPacketInterval = 1.0f;
         private bool scienceMonitorActive = false;
         private int actualMaxTechLevel = 0;
+        private int maxPurchasableTechLevel = 0;
 
         public float PowerDraw => RATools.LogScale(PowerDrawLinear);
         public float PowerDrawLinear => RATools.LinearScale(TxPower) / RAAntenna.PowerEfficiency;
@@ -157,15 +158,21 @@ namespace RealAntennas
             int maxLvlFromParams = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MaxTechLevel;
             if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER)
             {
-                maxTechLevel = actualMaxTechLevel = maxLvlFromParams;
+                maxTechLevel = actualMaxTechLevel = maxPurchasableTechLevel = maxLvlFromParams;
             }
             else if (RATools.RP1Found)
             {
                 // With RP-1 present, always allow selecting all TLs but validate the user choice on vessel getting built
                 maxTechLevel = maxLvlFromParams;
+                // In addition, default to the best purchasable TL.
+                maxPurchasableTechLevel = GetBestPurchasableTL();
+            }
+            else
+            {
+                maxPurchasableTechLevel = actualMaxTechLevel;
             }
             UpdateMaxTechLevelInUI();
-            if (TechLevel < 0) TechLevel = actualMaxTechLevel;
+            if (TechLevel < 0) TechLevel = maxPurchasableTechLevel;
 
             RAAntenna.Name = part.partInfo.title;
             if (!RAAntenna.CanTarget)
@@ -356,8 +363,8 @@ namespace RealAntennas
             if (HighLogic.LoadedSceneIsEditor)
             {
                 BaseField f = Fields[nameof(TechLevel)];
-                f.guiFormat = techLevel > actualMaxTechLevel ? "'<color=orange>'#'</color>'" : "N0";
-                f.guiName = techLevel > actualMaxTechLevel ? "<color=orange>Tech Level</color>" : "Tech Level";
+                f.guiFormat = techLevel > maxPurchasableTechLevel ? "'<color=orange>'#'</color>'" : (techLevel > actualMaxTechLevel ? "'<color=yellow>'#'</color>'" : "N0");
+                f.guiName = techLevel > maxPurchasableTechLevel ? "<color=orange>Tech Level</color>" : (techLevel > actualMaxTechLevel ? "<color=yellow>Tech Level</color>" : "Tech Level");
             }
         }
 
@@ -509,10 +516,15 @@ namespace RealAntennas
             costToResolve = 0;
             techToResolve = string.Empty;
 
-            if (Condition == AntennaCondition.Disabled || techLevel <= actualMaxTechLevel) return true;
+            if (Condition == AntennaCondition.Disabled || techLevel == 0) return true;
 
             PartUpgradeHandler.Upgrade upgd = GetUpgradeForTL(techLevel);
-            if (PartUpgradeManager.Handler.IsAvailableToUnlock(upgd.name))
+
+            if (PartUpgradeManager.Handler.IsUnlocked(upgd.name))
+            {
+                return true;
+            }
+            else if (PartUpgradeManager.Handler.IsAvailableToUnlock(upgd.name))
             {
                 canBeResolved = true;
                 costToResolve = upgd.entryCost;
@@ -563,6 +575,17 @@ namespace RealAntennas
         {
             TechLevelInfo tlInf = TechLevelInfo.GetTechLevel(techLevel);
             return PartUpgradeManager.Handler.GetUpgrade(tlInf.name);
+        }
+
+        private static int GetBestPurchasableTL()
+        {
+            for (int ret = TechLevelInfo.MaxTL; ret >= 0; --ret)
+            {
+                string name = TechLevelInfo.GetTechLevel(ret).name;
+                if (PartUpgradeManager.Handler.IsUnlocked(name) || PartUpgradeManager.Handler.IsAvailableToUnlock(name))
+                    return ret;
+            }
+            return 0; // TL0 is always available.
         }
         #endregion
     }

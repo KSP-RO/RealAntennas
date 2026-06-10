@@ -227,8 +227,8 @@ namespace RealAntennas
             float amt = AntennaMicrowaveTemp(rx);
             float atmos = AtmosphericTemp(rx, origin);
             float cosmic = CosmicBackgroundTemp(rx, origin);
-            // Home Stations are directional, but treated as always pointing towards the peer.
-            float allbody = rx.ParentNode.isHome ? AllBodyTemps(rx, origin - rx.Position) : AllBodyTemps(rx, rx.ToTarget);
+            // Tracking antennas always point towards the peer.
+            float allbody = (rx.IsTracking) ? AllBodyTemps(rx, origin - rx.Position) : AllBodyTemps(rx, rx.ToTarget);
             float total = amt + atmos + cosmic + allbody;
             //            Debug.LogFormat("NoiseTemp: Antenna {0:F2}  Atmos: {1:F2}  Cosmic: {2:F2}  Bodies: {3:F2}  Total: {4:F2}", amt, atmos, cosmic, allbody, total);
             return total;
@@ -260,11 +260,11 @@ namespace RealAntennas
             // P(dBW) = 10*log10(Kb*T*bandwidth) = -228.59917 + 10*log10(T*BW)
         }
         public static float AntennaMicrowaveTemp(RealAntenna rx) =>
-            ((rx.ParentNode as RACommNode)?.ParentBody is CelestialBody) ? rx.AMWTemp : rx.TechLevelInfo.ReceiverNoiseTemperature;
+            (rx.ParentNode is RACommNode raNode && raNode.isGroundStation) ? rx.AMWTemp : rx.TechLevelInfo.ReceiverNoiseTemperature;
 
         public static float AtmosphericTemp(RealAntenna rx, Vector3d origin)
         {
-            if (rx.ParentNode is RACommNode rxNode && rxNode.ParentBody != null)
+            if (rx.ParentNode is RACommNode rxNode && rxNode.isGroundStation)
             {
                 Vector3d normal = rxNode.GetSurfaceNormalVector();
                 return AtmosphericTemp(new double3(rx.Position.x, rx.Position.y, rx.Position.z),
@@ -299,12 +299,12 @@ namespace RealAntennas
             float temp = 3;
             if (rx.ParentNode is RACommNode rxNode)
             {
-                Vector3d normal = (rxNode.ParentBody is CelestialBody) ? rxNode.GetSurfaceNormalVector() : Vector3d.zero;
+                Vector3d normal = rxNode.isGroundStation ? rxNode.GetSurfaceNormalVector() : Vector3d.zero;
                 Vector3d to_origin = origin - rx.Position;
                 temp = CosmicBackgroundTemp(new double3(normal.x, normal.y, normal.z),
                                             new double3(to_origin.x, to_origin.y, to_origin.z),
                                             rx.Frequency,
-                                            rxNode.isHome);
+                                            rxNode.isGroundStation);
 
             }
             return temp;
@@ -320,7 +320,7 @@ namespace RealAntennas
                 // Note there are ~33 bodies in RSS.
                 foreach (CelestialBody body in FlightGlobals.Bodies)
                 {
-                    if (!node.isHome || !node.ParentBody.Equals(body))
+                    if (!node.isGroundStation || !node.ParentBody.Equals(body))
                     {
                         temp += BodyNoiseTemp(rx, body, rxPointing);
                     }

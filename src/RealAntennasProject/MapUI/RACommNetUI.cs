@@ -27,12 +27,14 @@ namespace RealAntennas.MapUI
         private readonly List<Vector3d> cone10Points = new List<Vector3d>();
         private readonly List<Vector3> cone10Points_out = new List<Vector3>();
         private readonly List<CommLink> commLinkList = new List<CommLink>();
+        private readonly List<CommLink> _scratchLinkList = new List<CommLink>();
         private readonly Cone cone3 = new Cone();
         private readonly Cone cone10 = new Cone();
         private readonly Dictionary<CommLink, GameObject> linkRenderers = new Dictionary<CommLink, GameObject>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> targetRenderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone3Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
         private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone10Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
+
 
         public enum DrawConesMode { None, Cone2D, Cone3D };
         public enum RadioPerspective { Transmit, Receive };
@@ -53,17 +55,14 @@ namespace RealAntennas.MapUI
             RATelemetryUpdate.Install();
         }
         public void ConstructSiteNode(RACommNetHome home) {
-            if (groundStationSiteNodes.ContainsKey(home.name)) { 
-                return; 
-            }
-            Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.name}");
+            Debug.LogFormat($"[RACommNetUI] Adding GroundStationSiteNode for {home.displaynodeName}");
             MapUI.GroundStationSiteNode gs = new MapUI.GroundStationSiteNode(home.Comm);
             SiteNode siteNode = SiteNode.Spawn(gs);
             Texture2D stationTexture = (GameDatabase.Instance.GetTexture(home.icon, false) is Texture2D tex) ? tex : GameDatabase.Instance.GetTexture(icon, false);
             // fetch default texture if conditional fails
             siteNode.wayPoint.node.SetIcon(Sprite.Create(stationTexture, new Rect(0, 0, stationTexture.width, stationTexture.height), new Vector2(0.5f, 0.5f), 100f));
             siteNode.wayPoint.node.OnUpdateVisible += home.OnUpdateVisible;
-            groundStationSiteNodes.Add(home.name, siteNode);
+            groundStationSiteNodes[home.nodeName] = siteNode; // skopos still needs these
         }
 
         // If either one of these lists is nonempty, the links that are shown
@@ -309,7 +308,9 @@ namespace RealAntennas.MapUI
                 {
                     foreach (RACommNode node in commNet.Nodes)
                     {
-                        GatherLinkLines(node.Values.ToList());
+                        _scratchLinkList.Clear();
+                        _scratchLinkList.AddRange(node.Values);
+                        GatherLinkLines(_scratchLinkList);
                         GatherAntennaCones(node);
                     }
                 }
@@ -328,13 +329,17 @@ namespace RealAntennas.MapUI
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.VesselLinks:
-                            GatherLinkLines(commNode.Values.ToList());
+                            _scratchLinkList.Clear();
+                            _scratchLinkList.AddRange(commNode.Values);
+                            GatherLinkLines(_scratchLinkList);
                             GatherAntennaCones(commNode);
                             break;
                         case CommNetUI.DisplayMode.Path:
                             if (commPath.Count == 0)
                             {
-                                GatherLinkLines(commNode.Values.ToList());
+                                _scratchLinkList.Clear();
+                                _scratchLinkList.AddRange(commNode.Values);
+                                GatherLinkLines(_scratchLinkList);
                                 GatherAntennaCones(commNode);
                             }
                             foreach (CommLink link in commPath)

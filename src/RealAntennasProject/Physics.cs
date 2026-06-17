@@ -144,11 +144,7 @@ namespace RealAntennas
         public static float BodyNoiseTempOmni(double3 antPos, double3 bodyPos, float bodyRadius, float bodyTemp)
         {
             float bodyAngularRad = (float) math.radians(MathUtils.AngularRadius(bodyRadius, math.length(bodyPos - antPos)));
-            float totalAreaFrac = bodyAngularRad * bodyAngularRad / 4f;
-            if (bodyAngularRad > SmallAngleThreshold)
-            {
-                totalAreaFrac = (1f - math.cos(bodyAngularRad)) / 2f;
-            }
+            float totalAreaFrac = (bodyAngularRad > SmallAngleThreshold) ? (1f - math.cos(bodyAngularRad)) / 2f : bodyAngularRad * bodyAngularRad / 4f;
             return bodyTemp * totalAreaFrac;
         }
 

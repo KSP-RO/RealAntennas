@@ -294,7 +294,7 @@ namespace RealAntennas
             return CMB / lossFactor;
         }
 
-        private static float CosmicBackgroundTemp(RealAntenna rx, Vector3d origin)
+        public static float CosmicBackgroundTemp(RealAntenna rx, Vector3d origin)
         {
             float temp = 3;
             if (rx.ParentNode is RACommNode rxNode)

@@ -164,11 +164,11 @@ namespace RealAntennas
                 UpdateNetwork();
                 Profiler.EndSample();
                 PrecomputeLateWatch.Stop();
+                LastUpdateUT = Planetarium.GetUniversalTime();
                 NetworkUpdateComplete.Fire();
                 PostUpdateNodes();
                 if (OnNetworkPostUpdate is Action)
                     OnNetworkPostUpdate();
-                LastUpdateUT = Planetarium.GetUniversalTime();
                 tempWatch.Stop();
                 Profiler.EndSample();
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Precompute LateRebuild", PrecomputeLateWatch.Elapsed.TotalMilliseconds);

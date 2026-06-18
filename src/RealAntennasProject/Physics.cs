@@ -14,6 +14,7 @@ namespace RealAntennas
         public const float MaxOmniGain = 5;
         public const float c = 2.998e8f;
         public const float CMB = 2.725f;
+        public const float SmallAngleThreshold = math.PI / 4; // maximum angle at which we use the small angle approximation for solid angles
         public static double SolarLuminosity => PhysicsGlobals.SolarLuminosity > double.Epsilon ? PhysicsGlobals.SolarLuminosity : Math.Pow(Planetarium.fetch.Home.orbit.semiMajorAxis, 2.0) * 4.0 * Math.PI * PhysicsGlobals.SolarLuminosityAtHome;
 
         //private static readonly double path_loss_constant = 20 * Math.Log10(4 * Math.PI / (2.998 * Math.Pow(10, 8)));
@@ -140,6 +141,13 @@ namespace RealAntennas
         //return body.isStar ? StarRadioTemp(baseTemp, rx.Frequency) : baseTemp;      // TODO: Get the BLACKBODY temperature!
 
 
+        public static float BodyNoiseTempOmni(double3 antPos, double3 bodyPos, float bodyRadius, float bodyTemp)
+        {
+            float bodyAngularRad = (float) math.radians(MathUtils.AngularRadius(bodyRadius, math.length(bodyPos - antPos)));
+            float totalAreaFrac = (bodyAngularRad > SmallAngleThreshold) ? (1f - math.cos(bodyAngularRad)) / 2f : bodyAngularRad * bodyAngularRad / 4f;
+            return bodyTemp * totalAreaFrac;
+        }
+
         public static float BodyNoiseTemp(double3 antPos,
                                             float gain,
                                             double3 dir,
@@ -148,7 +156,7 @@ namespace RealAntennas
                                             float bodyTemp,
                                             float beamwidth = -1)
         {
-            if (gain < MaxOmniGain) return 0;
+            if (gain < MaxOmniGain) return BodyNoiseTempOmni(antPos, bodyPos, bodyRadius, bodyTemp);
             if (bodyTemp < float.Epsilon) return 0;
             double3 toBody = bodyPos - antPos;
             float angle = (float) MathUtils.Angle2(toBody, dir);
@@ -313,20 +321,17 @@ namespace RealAntennas
         public static float AllBodyTemps(RealAntenna rx, Vector3d rxPointing)
         {
             float temp = 0;
-            if (rx.Shape != AntennaShape.Omni)
+            Profiler.BeginSample("RA Physics AllBodyTemps MainLoop");
+            RACommNode node = rx.ParentNode as RACommNode;
+            // Note there are ~33 bodies in RSS.
+            foreach (CelestialBody body in FlightGlobals.Bodies)
             {
-                Profiler.BeginSample("RA Physics AllBodyTemps MainLoop");
-                RACommNode node = rx.ParentNode as RACommNode;
-                // Note there are ~33 bodies in RSS.
-                foreach (CelestialBody body in FlightGlobals.Bodies)
+                if (!node.isGroundStation || !node.ParentBody.Equals(body))
                 {
-                    if (!node.isGroundStation || !node.ParentBody.Equals(body))
-                    {
-                        temp += BodyNoiseTemp(rx, body, rxPointing);
-                    }
+                    temp += BodyNoiseTemp(rx, body, rxPointing);
                 }
-                Profiler.EndSample();
             }
+            Profiler.EndSample();
             return temp;
         }
     }

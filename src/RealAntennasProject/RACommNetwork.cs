@@ -34,6 +34,7 @@ namespace RealAntennas
             }
             return base.Add(conn);
         }
+
         protected override bool SetNodeConnection(CommNode a, CommNode b)
         {
             Debug.LogError($"[RACommNetwork] SetNodeConnection called, but it should never be!");
@@ -52,7 +53,7 @@ namespace RealAntennas
             return false;
         }
 
-        internal void MakeLink(RealAntenna fwdTx,
+        public void MakeLink(RealAntenna fwdTx,
                                RealAntenna fwdRx,
                                RealAntenna revTx,
                                RealAntenna revRx,
@@ -163,11 +164,11 @@ namespace RealAntennas
                 UpdateNetwork();
                 Profiler.EndSample();
                 PrecomputeLateWatch.Stop();
+                LastUpdateUT = Planetarium.GetUniversalTime();
+                NetworkUpdateComplete.Fire();
                 PostUpdateNodes();
                 if (OnNetworkPostUpdate is Action)
                     OnNetworkPostUpdate();
-                LastUpdateUT = Planetarium.GetUniversalTime();
-                NetworkUpdateComplete.Fire();
                 tempWatch.Stop();
                 Profiler.EndSample();
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Precompute LateRebuild", PrecomputeLateWatch.Elapsed.TotalMilliseconds);
@@ -189,7 +190,7 @@ namespace RealAntennas
             precompute.Complete(this);
         }
 
-        internal void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);
+        public void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);
 
         public override void Rebuild()
         {

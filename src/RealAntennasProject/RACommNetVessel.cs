@@ -11,8 +11,8 @@ namespace RealAntennas
     public class RACommNetVessel : CommNet.CommNetVessel
     {
         protected const string ModTag = "[RealAntennasCommNetVessel]";
-        readonly List<RealAntenna> antennaList = new List<RealAntenna>();
-        readonly List<RealAntenna> inactiveAntennas = new List<RealAntenna>();
+        public readonly List<RealAntenna> antennaList = new List<RealAntenna>();
+        public readonly List<RealAntenna> inactiveAntennas = new List<RealAntenna>();
         readonly List<CommNet.ModuleProbeControlPoint> probeControlPoints = new List<CommNet.ModuleProbeControlPoint>();
         private PartResourceDefinition electricChargeDef;
 

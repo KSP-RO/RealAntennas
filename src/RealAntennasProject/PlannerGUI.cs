@@ -263,7 +263,7 @@ namespace RealAntennas
                                 res = true;
                             }
                 }
-                foreach (Vessel v in FlightGlobals.Vessels.Where(x => x.Connection is RACommNetVessel))
+                foreach (Vessel v in FlightGlobals.Vessels.Where(x => x.Connection is RACommNetVessel).OrderBy(x => x != FlightGlobals.ActiveVessel))
                 {
                     RACommNetVessel rcv = v.Connection as RACommNetVessel;
                     foreach (RealAntenna ra in rcv.antennaList)

@@ -156,6 +156,13 @@ namespace RealAntennas
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
+            if (!primaryAntenna.Compatible(fixedAntenna) && fixedAntenna.ParentNode is RACommNode raNode && raNode.RAAntennaList.FirstOrDefault(x => x.Compatible(primaryAntenna)) is RealAntenna ra)
+            {
+                ScreenMessages.PostScreenMessage($"{fixedAntenna.ParentNode.displayName} {fixedAntenna.Name} band changed from {fixedAntenna.RFBand.name} to {ra.RFBand.name} to match with {primaryAntenna.Name} band", 2, ScreenMessageStyle.UPPER_CENTER);
+                fixedAntenna = ra;
+                RequestUpdate = true;
+            }
+
             var bodyList = new List<CelestialBody> { Planetarium.fetch.Sun };
             bodyList.AddRange(Planetarium.fetch.Home.orbitingBodies);
             bodyList.AddRange(Planetarium.fetch.Sun.orbitingBodies);
@@ -284,7 +291,7 @@ namespace RealAntennas
             {
                 var homes = RACommNetScenario.GroundStations.Values.Where(x => x.Comm is RACommNode);
                 foreach (RealAntenna ra in FilterAndSortAntennas(peer, homes)) 
-                    if (peer.Compatible(ra) && GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
+                    if (GUILayout.Button($"{ra.ParentNode.displayName} {ra.ToStringShort()}", buttonStyle))
                     {
                         antenna = ra;
                         res = true;

@@ -158,6 +158,7 @@ namespace RealAntennas
 
             if (!primaryAntenna.Compatible(fixedAntenna) && fixedAntenna.ParentNode is RACommNode raNode && raNode.RAAntennaList.FirstOrDefault(x => x.Compatible(primaryAntenna)) is RealAntenna ra)
             {
+                ScreenMessages.PostScreenMessage($"{fixedAntenna.ParentNode.displayName} {fixedAntenna.Name} band changed from {fixedAntenna.RFBand.name} to {ra.RFBand.name} to match with {primaryAntenna.Name} band", 2, ScreenMessageStyle.UPPER_CENTER);
                 fixedAntenna = ra;
                 RequestUpdate = true;
             }

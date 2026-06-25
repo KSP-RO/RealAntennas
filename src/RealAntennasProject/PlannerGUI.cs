@@ -263,13 +263,22 @@ namespace RealAntennas
                                 res = true;
                             }
                 }
-                foreach (Vessel v in FlightGlobals.Vessels.Where(x => x.Connection?.Comm is RACommNode))
-                    foreach (RealAntenna ra in (v.Connection.Comm as RACommNode).RAAntennaList)
+                foreach (Vessel v in FlightGlobals.Vessels.Where(x => x.Connection is RACommNetVessel).OrderBy(x => x != FlightGlobals.ActiveVessel))
+                {
+                    RACommNetVessel rcv = v.Connection as RACommNetVessel;
+                    foreach (RealAntenna ra in rcv.antennaList)
                         if (GUILayout.Button($"{v.GetDisplayName()} {ra.ToStringShort()}", buttonStyle))
                         {
                             antenna = ra;
                             res = true;
                         }
+                    foreach (RealAntenna ra in rcv.inactiveAntennas)
+                        if (GUILayout.Button($"{v.GetDisplayName()} {ra.ToStringShort()} (undeployed)", buttonStyle))
+                        {
+                            antenna = ra;
+                            res = true;
+                        }
+                }
             }
             else
             {

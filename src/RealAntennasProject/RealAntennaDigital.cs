@@ -1,4 +1,4 @@
-﻿namespace RealAntennas
+namespace RealAntennas
 {
     public class RealAntennaDigital : RealAntenna
     {
@@ -31,6 +31,12 @@
         public override void LoadFromConfigNode(ConfigNode config)
         {
             base.LoadFromConfigNode(config);
+            modulator.LoadFromConfigNode(config);
+        }
+
+        public override void LoadSecondaryFromConfigNode(ConfigNode config)
+        {
+            base.LoadSecondaryFromConfigNode(config);
             modulator.LoadFromConfigNode(config);
         }
 

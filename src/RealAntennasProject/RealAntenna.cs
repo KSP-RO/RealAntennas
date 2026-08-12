@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -28,6 +28,17 @@ namespace RealAntennas
         public virtual float AMWTemp { get; set; }
         public virtual float Beamwidth => Physics.Beamwidth(Gain);
         public virtual string EncoderOverride { get; set; }
+
+        // Science vs Telemetry duty toggle.
+        public virtual AntennaDuty Duty { get; set; } = AntennaDuty.Both;
+        public bool CanHandleTelemetry => Duty.CanHandleTelemetry();
+        public bool CanHandleScience => Duty.CanHandleScience();
+
+        // restrict this transceiver to only transmitting or only
+        // receiving RF (eg a deliberately low-rate, receive-only uplink chain).
+        public virtual AntennaRFDirection RFDirection { get; set; } = AntennaRFDirection.Bidirectional;
+        public bool CanTransmitRF => RFDirection.CanTransmitRF();
+        public bool CanReceiveRF => RFDirection.CanReceiveRF();
 
         public Antenna.Encoder Encoder => Antenna.Encoder.GetFromName(EncoderOverride) ?? Antenna.Encoder.GetFromTechLevel(TechLevelInfo.Level);
         public virtual float RequiredCI => Encoder.RequiredEbN0;
@@ -60,6 +71,15 @@ namespace RealAntennas
                     snap.moduleValues.RemoveNode(Targeting.AntennaTarget.nodeName);
                     _target.Save(snap.moduleValues);
                 }
+                
+                // A dish is one physical piece of hardware, so a Dual-Band part's two
+                // transceivers must point the same way. Mirror the primary's target
+                // onto the secondary whenever it changes.
+                if (Parent is ModuleRealAntenna parentModule && ReferenceEquals(parentModule.RAAntenna, this)
+                    && parentModule.RASecondaryAntenna is RealAntenna secondary && !ReferenceEquals(secondary, this))
+                {
+                    secondary.Target = _target;
+                }
             }
         }
 
@@ -73,7 +93,13 @@ namespace RealAntennas
         private readonly float minimumSpotRadius = 1e3f;
 
         public override string ToString() => $"{Name} [{RFBand.name} {Gain:F1} dBi {TxPower} dBm [TL:{TechLevelInfo.Level:N0}]] {(CanTarget ? $" ->{Target}" : null)}";
-        public virtual string ToStringShort() => $"{Name} [{RFBand.name} {TxPower} dBm] {(CanTarget ? $" ->{Target}" : null)}";
+        public virtual string ToStringShort()
+        {
+            string modeSuffix = string.Empty;
+            if (Duty != AntennaDuty.Both) modeSuffix += $" [{Duty.ToModeName()}]";
+            if (RFDirection != AntennaRFDirection.Bidirectional) modeSuffix += $" [{(RFDirection.CanTransmitRF() ? "Downlink" : "Uplink")}]";
+            return $"{Name} [{RFBand.name} {TxPower} dBm]{modeSuffix} {(CanTarget ? $" ->{Target}" : null)}";
+        }
 
         public RealAntenna() : this("New RealAntennaDigital") { }
         public RealAntenna(string name, double dataRate = 1000)
@@ -100,9 +126,15 @@ namespace RealAntennas
             ParentNode = orig.ParentNode;
             ParentSnapshot = orig.ParentSnapshot;
             EncoderOverride = orig.EncoderOverride;
+            Duty = orig.Duty;
+            RFDirection = orig.RFDirection;
         }
 
-        public virtual bool Compatible(RealAntenna other) => RFBand == other.RFBand;
+        // Link Compatability
+        public virtual bool Compatible(RealAntenna other) => RFBand == other.RFBand && CanTransmitRF && other.CanReceiveRF;
+
+        public bool EitherDirectionCompatible(RealAntenna other) => Compatible(other) || other.Compatible(this);
+
         public virtual bool DirectionCheck(RealAntenna other) => DirectionCheck(other.Position);
         public virtual bool DirectionCheck(Vector3 pos) => Physics.PointingLoss(this, pos) < Physics.MaxPointingLoss;
 
@@ -125,6 +157,39 @@ namespace RealAntennas
                 SetDefaultTarget();
 
             EncoderOverride = (config.HasValue("EncoderOverride")) ? config.GetValue("EncoderOverride") : null;
+            // NOTE: key must match ModuleRealAntenna's persisted KSPField name
+            // (AntennaDutyMode), since this same method is used to rebuild a
+            // RealAntenna straight from a ProtoPartModuleSnapshot's saved values
+            // for unloaded vessels (RACommNetVessel.DiscoverAntennas), which is
+            // exactly the path Kerbalism's background sim relies on.
+            string sDuty = (config.HasValue("AntennaDutyMode")) ? config.GetValue("AntennaDutyMode") : AntennaDutyExtensions.DefaultModeName;
+            Duty = AntennaDutyExtensions.FromModeName(sDuty);
+            string sRole = (config.HasValue("LinkRoleMode")) ? config.GetValue("LinkRoleMode") : AntennaRFDirectionExtensions.DefaultModeName;
+            RFDirection = AntennaRFDirectionExtensions.FromModeName(sRole);
+        }
+
+        // Rebuilds this RealAntenna as the secondary transceiver of a dual-band
+        // ModuleRealAntenna, reading the "Secondary*"-prefixed config keys.
+        // Shares the physical dish with the primary - only band, direction and
+        // duty differ.
+        public virtual void LoadSecondaryFromConfigNode(ConfigNode config)
+        {
+            int tl = (config.HasValue("TechLevel")) ? int.Parse(config.GetValue("TechLevel")) : 0;
+            TechLevelInfo = TechLevelInfo.GetTechLevel(tl);
+            string sRFBand = (config.HasValue("SecondaryRFBand")) ? config.GetValue("SecondaryRFBand") : Antenna.BandInfo.All.Keys.DefaultIfEmpty("S").First();
+            RFBand = Antenna.BandInfo.Get(sRFBand);
+            referenceGain = (config.HasValue("referenceGain")) ? float.Parse(config.GetValue("referenceGain")) : 0;
+            referenceFrequency = (config.HasValue("referenceFrequency")) ? float.Parse(config.GetValue("referenceFrequency")) : 0;
+            antennaDiameter = (config.HasValue("antennaDiameter")) ? float.Parse(config.GetValue("antennaDiameter")) : 0;
+            Gain = (antennaDiameter > 0) ? Physics.GainFromDishDiamater(antennaDiameter, RFBand.Frequency, AntennaEfficiency) : Physics.GainFromReference(referenceGain, referenceFrequency * 1e6f, RFBand.Frequency);
+            TxPower = (config.HasValue("TxPower")) ? float.Parse(config.GetValue("TxPower")) : 30f;
+            SymbolRate = RFBand.MaxSymbolRate(TechLevelInfo.Level);
+            AMWTemp = (config.HasValue("AMWTemp")) ? float.Parse(config.GetValue("AMWTemp")) : 290f;
+            EncoderOverride = (config.HasValue("EncoderOverride")) ? config.GetValue("EncoderOverride") : null;
+            string sDuty = (config.HasValue("SecondaryAntennaDutyMode")) ? config.GetValue("SecondaryAntennaDutyMode") : AntennaDutyExtensions.DefaultModeName;
+            Duty = AntennaDutyExtensions.FromModeName(sDuty);
+            string sRole = (config.HasValue("SecondaryLinkRoleMode")) ? config.GetValue("SecondaryLinkRoleMode") : AntennaRFDirectionExtensions.DefaultModeName;
+            RFDirection = AntennaRFDirectionExtensions.FromModeName(sRole);
         }
 
         public virtual void ProcessUpgrades(float tsLevel, ConfigNode node)

@@ -1,4 +1,4 @@
-﻿using CommNet;
+using CommNet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,7 +64,9 @@ namespace RealAntennas
                                double RevDataRate,
                                double FwdBestDataRate,
                                double FwdMetric,
-                               double RevMetric
+                               double RevMetric,
+                               bool fwdValid = true,
+                               bool revValid = true
                                )
         {
             RACommLink link = Connect(a, b, distance) as RACommLink;
@@ -78,13 +80,20 @@ namespace RealAntennas
             link.RevAntennaRx = revRx;
             link.FwdDataRate = FwdDataRate;
             link.RevDataRate = RevDataRate;
-            link.cost = link.CostFunc((FwdDataRate + RevDataRate) / 2);
+            
+            // Only average across directions that actually exist - otherwise
+            // legitimately absent direction would halve the apparent rate.
+            double avgRateForCost = (fwdValid && revValid) ? (FwdDataRate + RevDataRate) / 2 : (fwdValid ? FwdDataRate : RevDataRate);
+            link.cost = link.CostFunc(avgRateForCost);
             link.FwdMetric = FwdMetric;
             link.RevMetric = RevMetric;
             if (FwdBestDataRate < FwdDataRate)
                 Debug.LogWarning($"{ModTag} Detected actual rate {FwdDataRate} greater than expected max {FwdBestDataRate} for antennas {link.FwdAntennaTx} and {link.FwdAntennaRx}");
 
-            link.Update(Math.Min(link.FwdMetric, link.RevMetric));
+            // Same reasoning: Math.Min would zero out the signal strength of a
+            // good one-directional link, since the missing side's metric is 0.
+            double signalMetric = (fwdValid && revValid) ? Math.Min(link.FwdMetric, link.RevMetric) : (fwdValid ? link.FwdMetric : link.RevMetric);
+            link.Update(signalMetric);
         }
 
         protected override CommLink Connect(CommNode a, CommNode b, double distance)
@@ -128,6 +137,34 @@ namespace RealAntennas
             }
             return data_rate;
         }
+
+
+
+
+
+
+        // Data rate along a path to home that's usable for Science end to end
+        // (see FindScienceCapableHome), not just the general best/control path.
+        // If the best path crosses a Telemetry-only hop, this searches for a
+        // fully Science-capable alternate route instead of reporting 0. Used by
+        // the Kerbalism bridge, which bypasses ModuleRealAntenna's own duty check.
+        public double MaxScienceDataRateToHome(RACommNode start)
+        {
+            if (start == null) return 0;
+            CommPath path = new CommPath();
+            if (!FindScienceCapableHome(start, path)) return 0;
+            double data_rate = double.MaxValue;
+            foreach (CommLink l in path)
+            {
+                RACommLink link = l.start[l.end] as RACommLink;
+                double linkRate = link.start.Equals(l.start) ? link.FwdDataRate : link.RevDataRate;
+                data_rate = Math.Min(data_rate, linkRate);
+            }
+            return data_rate == double.MaxValue ? 0 : data_rate;
+        }
+
+        public bool PathCanCarryScience(RACommNode start) => MaxScienceDataRateToHome(start) > 0;
+
         private bool calculating = false;
 
         private bool IsPaused => (KSCPauseMenu.Instance && KSCPauseMenu.Instance.enabled) || (PauseMenu.exists && PauseMenu.isOpen);
@@ -275,6 +312,50 @@ namespace RealAntennas
             Debug.Log(CommLinkWalk());
         }
 
+        // findhome for recieve only craft
+        public override bool FindHome(CommNode start, CommPath path)
+        {
+            if (base.FindHome(start, path))
+                return true;
+            if (currentPurpose != PathPurpose.General || !(start is RACommNode racn) || HasTelemetryCapableTransmitAntenna(racn))
+                return false;
+
+            foreach (var home in RACommNetScenario.EnabledStations)
+            {
+                if (!(home.Comm is RACommNode homeNode)) continue;
+                CommPath reversePath = new CommPath();
+                CommNode foundReverse;
+                searchingFromHome = true;
+                try
+                {
+                    foundReverse = FindClosestWhere(homeNode, reversePath, (s, c) => c == start);
+                }
+                finally
+                {
+                    searchingFromHome = false;
+                }
+                if (foundReverse != null)
+                {
+                    foreach (CommLink l in reversePath)
+                        if (l is RACommLink racLink) racLink.SwapEnds();
+                    reversePath.Reverse();
+                    path?.Clear();
+                    path?.AddRange(reversePath);
+                    path?.UpdateFromPath();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        
+        private bool searchingFromHome = false;
+
+        // the fallback should only trigger when the craft has
+        // no way to originate a CONTROL-carrying transmission
+        private static bool HasTelemetryCapableTransmitAntenna(RACommNode node) =>
+            node.RAAntennaList != null && node.RAAntennaList.Any(ra => ra.CanTransmitRF && ra.CanHandleTelemetry);
+
         #region Pathfinding
         /*
         public override bool FindPath(CommNode start, CommPath path, CommNode end)
@@ -282,6 +363,24 @@ namespace RealAntennas
             return base.FindPath(start, path, end);
         }
         */
+
+        
+        public enum PathPurpose { General, ScienceCapable }
+        private PathPurpose currentPurpose = PathPurpose.General;
+
+        
+        public bool FindScienceCapableHome(RACommNode start, CommPath path)
+        {
+            currentPurpose = PathPurpose.ScienceCapable;
+            try
+            {
+                return FindHome(start, path);
+            }
+            finally
+            {
+                currentPurpose = PathPurpose.General;
+            }
+        }
 
         private readonly HashSet<RACommNode> sptSet = new HashSet<RACommNode>();
         private readonly List<RACommNode> pathSortList = new List<RACommNode>();
@@ -295,6 +394,9 @@ namespace RealAntennas
             path?.Clear();
             sptSet.Clear();
             pathSortList.Clear();
+            float minControlUplinkRate = currentPurpose == PathPurpose.General
+                ? HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MinControlUplinkBitRate
+                : 0f;
             foreach (RACommNode racn in Nodes)
             {
                 racn.bestCost = (racn == start) ? 0 : double.PositiveInfinity;
@@ -314,19 +416,37 @@ namespace RealAntennas
                 {
                     foreach (KeyValuePair<CommNode, CommLink> kvp in candidate)
                     {
-                        if (kvp.Key is RACommNode node && kvp.Value is RACommLink link && !sptSet.Contains(node)
-                            && (link.start == candidate ? link.FwdAntennaRx : link.RevAntennaRx) is RealAntenna rxAntenna
-                            // Skip if the peer is unable to relay and is also not the destination
-                            && (rxAntenna.TechLevelInfo.Level >= RACommNetScenario.minRelayTL || where(start, node)))
+                        if (kvp.Key is RACommNode node && kvp.Value is RACommLink link && !sptSet.Contains(node))
                         {
-                            double cost = link.start == candidate ? link.FwdCost : link.RevCost;
-                            if (node.bestCost > candidate.bestCost + cost)
+                            bool forward = link.start == candidate;
+                            RealAntenna txAntenna = forward ? link.FwdAntennaTx : link.RevAntennaTx;
+                            RealAntenna rxAntenna = forward ? link.FwdAntennaRx : link.RevAntennaRx;
+                            
+                            double uplinkRateThisHop = searchingFromHome
+                                ? (forward ? link.FwdDataRate : link.RevDataRate)
+                                : (forward ? link.RevDataRate : link.FwdDataRate);
+
+                            
+                            bool relayOk = rxAntenna is RealAntenna
+                                && (rxAntenna.TechLevelInfo.Level >= RACommNetScenario.minRelayTL || where(start, node));
+                            bool scienceOk = currentPurpose != PathPurpose.ScienceCapable
+                                || (txAntenna is RealAntenna && rxAntenna is RealAntenna && txAntenna.CanHandleScience && rxAntenna.CanHandleScience);
+                            
+                            bool telemetryOk = currentPurpose != PathPurpose.General
+                                || (txAntenna is RealAntenna && rxAntenna is RealAntenna && txAntenna.CanHandleTelemetry && rxAntenna.CanHandleTelemetry);
+                            bool uplinkOk = minControlUplinkRate <= 0 || uplinkRateThisHop >= minControlUplinkRate;
+
+                            if (relayOk && scienceOk && telemetryOk && uplinkOk)
                             {
-                                node.bestCost = candidate.bestCost + cost;
-                                node.bestLink = link;
-                                node.bestLinkNode = candidate;
+                                double cost = forward ? link.FwdCost : link.RevCost;
+                                if (node.bestCost > candidate.bestCost + cost)
+                                {
+                                    node.bestCost = candidate.bestCost + cost;
+                                    node.bestLink = link;
+                                    node.bestLinkNode = candidate;
+                                }
+                                pathSortList.AddUnique(node);
                             }
-                            pathSortList.AddUnique(node);
                         }
                     }
                 }

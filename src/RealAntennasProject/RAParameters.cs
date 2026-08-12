@@ -1,4 +1,4 @@
-﻿namespace RealAntennas
+namespace RealAntennas
 {
     class RAParameters : GameParameters.CustomParameterNode
     {
@@ -30,17 +30,25 @@
         [GameParameters.CustomFloatParameterUI("Rescale transmission rate for stock science", toolTip = "Multiplier to transmission rate for stock science.  Available for balancing purposes: turn it down if science transmits too quickly, or up if too slowly.", minValue = 0.00001f, maxValue = 0.01f, stepCount = 10000, displayFormat = "N5")]
         public float StockRateModifier = 0.01f;
 
+        [GameParameters.CustomFloatParameterUI("Min. Uplink Bit Rate for Probe Control (bps)", toolTip = "The command uplink (Kerbin/relay -> craft) needs at least this data rate for the Antenna Planner to consider the link usable for probe control. 0 = no minimum. NOTE: currently advisory only in the Planner - not yet enforced in flight.", minValue = 0f, maxValue = 2000f, stepCount = 400, displayFormat = "N0")]
+        public float MinControlUplinkBitRate = 0f;
+
         public override void SetDifficultyPreset(GameParameters.Preset preset)
         {
             switch (preset)
             {
                 case GameParameters.Preset.Easy:
                     enforceMinDirectionalDistance = false;
+                    MinControlUplinkBitRate = 0;
                     break;
                 case GameParameters.Preset.Normal:
                 case GameParameters.Preset.Moderate:
+                    enforceMinDirectionalDistance = true;
+                    MinControlUplinkBitRate = 0;
+                    break;
                 case GameParameters.Preset.Hard:
                     enforceMinDirectionalDistance = true;
+                    MinControlUplinkBitRate = 8;
                     break;
             }
         }

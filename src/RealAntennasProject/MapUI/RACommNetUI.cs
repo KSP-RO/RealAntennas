@@ -1,4 +1,4 @@
-﻿using CommNet;
+using CommNet;
 using RealAntennas.Network;
 using System;
 using System.Collections.Generic;
@@ -84,8 +84,11 @@ namespace RealAntennas.MapUI
                 {
                     go = new GameObject("LinkLineRenderer");
                     LineRenderer rend = go.AddComponent<LineRenderer>();
-                    bool dotted = link.FwdAntennaTx.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
-                                  link.FwdAntennaRx.TechLevelInfo.Level < RACommNetScenario.minRelayTL;
+                    // Fwd/Rev antennas can each independently be null now
+                    bool dotted = link.FwdAntennaTx?.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
+                                  link.FwdAntennaRx?.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
+                                  link.RevAntennaTx?.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
+                                  link.RevAntennaRx?.TechLevelInfo.Level < RACommNetScenario.minRelayTL;
                     InitializeRenderer(rend, dotted);
                     linkRenderers.Add(link, go);
                 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -453,43 +453,39 @@ namespace RealAntennas.Precompute
                 if (pair.x <= pair.y && pair.y < RACN.Nodes.Count)
                 {
                     var p2 = new int2(pair.y, pair.x);
-                    if (validMap.TryGetValue(pair, out bool valid) && valid &&
-                        validMap.TryGetValue(p2, out bool valid2) && valid2 &&
-                        bestMap.TryGetValue(pair, out int row) &&
-                        bestMap.TryGetValue(p2, out int row2) &&
-                        row >= 0 && row2 >= 0 &&
-                        dataRate[row] > 0 && dataRate[row2] > 0)
+                    int row = -1, row2 = -1;
+                    bool fwdValid = validMap.TryGetValue(pair, out bool valid) && valid
+                        && bestMap.TryGetValue(pair, out row) && row >= 0 && dataRate[row] > 0;
+                    bool revValid = validMap.TryGetValue(p2, out bool valid2) && valid2
+                        && bestMap.TryGetValue(p2, out row2) && row2 >= 0 && dataRate[row2] > 0;
+                    if (fwdValid || revValid)
                     {
                         // Connect Successful
                         RACommNode a = RACN.Nodes[pair.x] as RACommNode;
                         RACommNode b = RACN.Nodes[pair.y] as RACommNode;
-                        int4 fwdQuad = allValidAntennaPairs[row];
-                        int4 revQuad = allValidAntennaPairs[row2];
-                        /*
-                        RealAntenna fwdTx = allAntennasReverse[fwdQuad.z];
-                        RealAntenna fwdRx = allAntennasReverse[fwdQuad.w];
-                        RealAntenna revTx = allAntennasReverse[revQuad.z];
-                        RealAntenna revRx = allAntennasReverse[revQuad.w];
-                        double fwd = dataRate[row];
-                        double rev = dataRate[row2];
-                        double FwdBestDataRate = maxDataRate[row];
-                        double RevBestDataRate = maxDataRate[row2];
-                        */
-                        double FwdMetric = 1.0 - ((float)rateSteps[row] / (maxSteps[row] + 1));
-                        double RevMetric = 1.0 - ((float)rateSteps[row2] / (maxSteps[row2] + 1));
-                        //RACN.MakeLink(fwdTx, fwdRx, revTx, revRx, a, b, (a.position - b.position).magnitude, fwd, rev, FwdBestDataRate, FwdMetric, RevMetric);
-                        RACN.MakeLink(allAntennasReverse[fwdQuad.z],
-                            allAntennasReverse[fwdQuad.w],
-                            allAntennasReverse[revQuad.z],
-                            allAntennasReverse[revQuad.w],
+                        RealAntenna fwdTx = fwdValid ? allAntennasReverse[allValidAntennaPairs[row].z] : null;
+                        RealAntenna fwdRx = fwdValid ? allAntennasReverse[allValidAntennaPairs[row].w] : null;
+                        RealAntenna revTx = revValid ? allAntennasReverse[allValidAntennaPairs[row2].z] : null;
+                        RealAntenna revRx = revValid ? allAntennasReverse[allValidAntennaPairs[row2].w] : null;
+                        double FwdRate = fwdValid ? dataRate[row] : 0;
+                        double RevRate = revValid ? dataRate[row2] : 0;
+                        double FwdBestDataRate = fwdValid ? maxDataRate[row] : 0;
+                        double FwdMetric = fwdValid ? 1.0 - ((float)rateSteps[row] / (maxSteps[row] + 1)) : 0;
+                        double RevMetric = revValid ? 1.0 - ((float)rateSteps[row2] / (maxSteps[row2] + 1)) : 0;
+                        RACN.MakeLink(fwdTx,
+                            fwdRx,
+                            revTx,
+                            revRx,
                             a,
                             b,
                             (a.position - b.position).magnitude,
-                            dataRate[row],
-                            dataRate[row2],
-                            maxDataRate[row],
+                            FwdRate,
+                            RevRate,
+                            FwdBestDataRate,
                             FwdMetric,
-                            RevMetric);
+                            RevMetric,
+                            fwdValid,
+                            revValid);
                     } else
                     {
                         RACN.DoDisconnect(RACN.Nodes[pair.x], RACN.Nodes[pair.y]);

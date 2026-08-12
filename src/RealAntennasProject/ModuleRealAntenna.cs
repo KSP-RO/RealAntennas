@@ -1,4 +1,4 @@
-﻿using KSPCommunityFixes;
+using KSPCommunityFixes;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -56,6 +56,36 @@ namespace RealAntennas
 
         public Antenna.BandInfo RFBandInfo => Antenna.BandInfo.All[RFBand];
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Antenna Duty", groupName = PAWGroup),
+         UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string AntennaDutyMode = AntennaDutyExtensions.DefaultModeName;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Link Direction", groupName = PAWGroup),
+         UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string LinkRoleMode = AntennaRFDirectionExtensions.DefaultModeName;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Dual-Band Transceiver", groupName = PAWGroup),
+         UI_Toggle(disabledText = "Single Transceiver", enabledText = "Dual Transceiver", scene = UI_Scene.Editor)]
+        public bool MultiTransceiver = false;
+
+        // The secondary transceiver shares this part's physical dish with the
+        // primary, but can run a different band and be locked transmit- or
+        // receive-only - e.g. an X-band downlink alongside an S-band uplink.
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Secondary RF Band", groupName = PAWGroup),
+         UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string SecondaryRFBand = "S";
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Secondary Link Direction", groupName = PAWGroup),
+         UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string SecondaryLinkRoleMode = AntennaRFDirectionExtensions.DefaultModeName;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Secondary Antenna Duty", groupName = PAWGroup),
+         UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string SecondaryAntennaDutyMode = AntennaDutyExtensions.DefaultModeName;
+
+        [KSPField] public float multiTransceiverCostMult = 1.4f;
+        [KSPField] public float multiTransceiverMassMult = 1.25f;
+
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Power (Active)", groupName = PAWGroup)]
         public string sActivePowerConsumed = string.Empty;
 
@@ -74,6 +104,7 @@ namespace RealAntennas
         protected const string ModTag = "[ModuleRealAntenna] ";
         public static readonly string ModuleName = "ModuleRealAntenna";
         public RealAntenna RAAntenna;
+        public RealAntenna RASecondaryAntenna;
         public PlannerGUI plannerGUI;
 
         private ModuleDeployableAntenna deployableAntenna;
@@ -90,6 +121,9 @@ namespace RealAntennas
 
         public float PowerDraw => RATools.LogScale(PowerDrawLinear);
         public float PowerDrawLinear => RATools.LinearScale(TxPower) / RAAntenna.PowerEfficiency;
+        // idle draw for both transceivers combined, since a
+        // dual-band part physically runs two receiver chains at once.
+        public float TotalIdlePowerDraw => RAAntenna.IdlePowerDraw + (MultiTransceiver && RASecondaryAntenna != null ? RASecondaryAntenna.IdlePowerDraw : 0f);
 
         [KSPEvent(active = true, guiActive = true, guiName = "Antenna Targeting", groupName = PAWGroup)]
         void AntennaTargetGUI() => Targeting.AntennaTargetManager.AcquireGUI(RAAntenna);
@@ -115,6 +149,10 @@ namespace RealAntennas
         {
             base.OnAwake();
             RAAntenna = new RealAntennaDigital(part.partInfo?.title ?? part.name);
+            // Always constructed so the rest of the code never needs a null check;
+            // it just isn't added to the vessel's antenna list unless MultiTransceiver
+            // is enabled (see RACommNetVessel.DiscoverAntennas).
+            RASecondaryAntenna = new RealAntennaDigital($"{part.partInfo?.title ?? part.name} (Secondary)");
         }
 
         public override void OnLoad(ConfigNode node)
@@ -141,8 +179,15 @@ namespace RealAntennas
         {
             RAAntenna.Name = part.partInfo?.title ?? part.name;
             RAAntenna.Parent = this;
+            // Secondary's Parent/Name must be wired up BEFORE the primary loads its
+            // config: LoadFromConfigNode may set RAAntenna.Target, whose setter
+            // mirrors onto RASecondaryAntenna - that only works if RASecondaryAntenna
+            // is already reachable as parentModule.RASecondaryAntenna at that point.
+            RASecondaryAntenna.Name = $"{part.partInfo?.title ?? part.name} (Secondary)";
+            RASecondaryAntenna.Parent = this;
             RAAntenna.LoadFromConfigNode(node);
             Gain = RAAntenna.Gain;
+            RASecondaryAntenna.LoadSecondaryFromConfigNode(node);
         }
 
         public override void OnStart(StartState state)
@@ -186,6 +231,8 @@ namespace RealAntennas
             ApplyGameSettings();
             SetupUICallbacks();
             ConfigBandOptions();
+            ConfigDutyOptions();
+            ConfigLinkRoleOptions();
             SetupIdlePower();
             RecalculateFields();
             SetFieldVisibility();
@@ -208,7 +255,7 @@ namespace RealAntennas
             if (HighLogic.LoadedSceneIsFlight && Condition != AntennaCondition.Disabled)
             {
                 var electricCharge = resHandler.inputResources.First(x => x.id == PartResourceLibrary.ElectricityHashcode);
-                electricCharge.rate = Condition != AntennaCondition.PermanentShutdown && (Kerbalism.Kerbalism.KerbalismAssembly is null) ? RAAntenna.IdlePowerDraw : 0;
+                electricCharge.rate = Condition != AntennaCondition.PermanentShutdown && (Kerbalism.Kerbalism.KerbalismAssembly is null) ? TotalIdlePowerDraw : 0;
                 string err = "";
                 resHandler.UpdateModuleResourceInputs(ref err, 1, 1, false, false);
             }
@@ -233,13 +280,29 @@ namespace RealAntennas
             RAAntenna.TechLevelInfo = TechLevelInfo.GetTechLevel(techLevel);
             RAAntenna.TxPower = TxPower;
             RAAntenna.RFBand = Antenna.BandInfo.All[RFBand];
+            RAAntenna.Duty = AntennaDutyExtensions.FromModeName(AntennaDutyMode);
+            RAAntenna.RFDirection = AntennaRFDirectionExtensions.FromModeName(LinkRoleMode);
             RAAntenna.SymbolRate = RAAntenna.RFBand.MaxSymbolRate(techLevel);
             RAAntenna.Gain = Gain = (antennaDiameter > 0) ? Physics.GainFromDishDiamater(antennaDiameter, RFBandInfo.Frequency, RAAntenna.AntennaEfficiency) : Physics.GainFromReference(referenceGain, referenceFrequency * 1e6f, RFBandInfo.Frequency);
-            double idleDraw = RAAntenna.IdlePowerDraw * 1000;
-            sIdlePowerConsumed = $"{idleDraw:F2} Watts";
-            sActivePowerConsumed = $"{idleDraw + (PowerDrawLinear / 1000):F2} Watts";
             int ModulationBits = (RAAntenna as RealAntennaDigital).modulator.ModulationBitsFromTechLevel(TechLevel);
             (RAAntenna as RealAntennaDigital).modulator.ModulationBits = ModulationBits;
+
+            if (MultiTransceiver)
+            {
+                Antenna.BandInfo secondaryBand = Antenna.BandInfo.All[SecondaryRFBand];
+                RASecondaryAntenna.TechLevelInfo = RAAntenna.TechLevelInfo;
+                RASecondaryAntenna.TxPower = TxPower;
+                RASecondaryAntenna.RFBand = secondaryBand;
+                RASecondaryAntenna.Duty = AntennaDutyExtensions.FromModeName(SecondaryAntennaDutyMode);
+                RASecondaryAntenna.RFDirection = AntennaRFDirectionExtensions.FromModeName(SecondaryLinkRoleMode);
+                RASecondaryAntenna.SymbolRate = secondaryBand.MaxSymbolRate(techLevel);
+                RASecondaryAntenna.Gain = (antennaDiameter > 0) ? Physics.GainFromDishDiamater(antennaDiameter, secondaryBand.Frequency, RASecondaryAntenna.AntennaEfficiency) : Physics.GainFromReference(referenceGain, referenceFrequency * 1e6f, secondaryBand.Frequency);
+                (RASecondaryAntenna as RealAntennaDigital).modulator.ModulationBits = (RASecondaryAntenna as RealAntennaDigital).modulator.ModulationBitsFromTechLevel(TechLevel);
+            }
+
+            double idleDraw = TotalIdlePowerDraw * 1000;
+            sIdlePowerConsumed = $"{idleDraw:F2} Watts";
+            sActivePowerConsumed = $"{idleDraw + (PowerDrawLinear / 1000):F2} Watts";
 
             RecalculatePlannerECConsumption();
             if (plannerGUI is PlannerGUI)
@@ -262,6 +325,13 @@ namespace RealAntennas
             Fields[nameof(TxPower)].guiActiveEditor = Fields[nameof(TxPower)].guiActive = showFields;
             Fields[nameof(TechLevel)].guiActiveEditor = Fields[nameof(TechLevel)].guiActive = showFields;
             Fields[nameof(RFBand)].guiActiveEditor = Fields[nameof(RFBand)].guiActive = showFields;
+            Fields[nameof(AntennaDutyMode)].guiActiveEditor = Fields[nameof(AntennaDutyMode)].guiActive = showFields;
+            Fields[nameof(LinkRoleMode)].guiActiveEditor = Fields[nameof(LinkRoleMode)].guiActive = showFields;
+            Fields[nameof(MultiTransceiver)].guiActiveEditor = showFields;
+            bool showSecondary = showFields && MultiTransceiver;
+            Fields[nameof(SecondaryRFBand)].guiActiveEditor = Fields[nameof(SecondaryRFBand)].guiActive = showSecondary;
+            Fields[nameof(SecondaryLinkRoleMode)].guiActiveEditor = Fields[nameof(SecondaryLinkRoleMode)].guiActive = showSecondary;
+            Fields[nameof(SecondaryAntennaDutyMode)].guiActiveEditor = Fields[nameof(SecondaryAntennaDutyMode)].guiActive = showSecondary;
             Fields[nameof(sActivePowerConsumed)].guiActiveEditor = Fields[nameof(sActivePowerConsumed)].guiActive = showFields;
             Fields[nameof(sIdlePowerConsumed)].guiActiveEditor = Fields[nameof(sIdlePowerConsumed)].guiActive = showFields;
             Fields[nameof(sAntennaTarget)].guiActive = showFields;
@@ -281,6 +351,12 @@ namespace RealAntennas
             Fields[nameof(TechLevel)].uiControlEditor.onSymmetryFieldChanged = OnTechLevelChangeSymmetry;
             Fields[nameof(RFBand)].uiControlEditor.onFieldChanged = OnRFBandChange;
             Fields[nameof(TxPower)].uiControlEditor.onFieldChanged = OnTxPowerChange;
+            Fields[nameof(AntennaDutyMode)].uiControlEditor.onFieldChanged = OnAntennaDutyChange;
+            Fields[nameof(LinkRoleMode)].uiControlEditor.onFieldChanged = OnLinkRoleChange;
+            Fields[nameof(MultiTransceiver)].uiControlEditor.onFieldChanged = OnMultiTransceiverChange;
+            Fields[nameof(SecondaryRFBand)].uiControlEditor.onFieldChanged = OnSecondaryRFBandChange;
+            Fields[nameof(SecondaryLinkRoleMode)].uiControlEditor.onFieldChanged = OnSecondaryLinkRoleChange;
+            Fields[nameof(SecondaryAntennaDutyMode)].uiControlEditor.onFieldChanged = OnSecondaryAntennaDutyChange;
             Fields[nameof(plannerActiveTxTime)].uiControlEditor.onFieldChanged += OnPlannerActiveTxTimeChanged;
         }
 
@@ -303,6 +379,17 @@ namespace RealAntennas
         }
         private void OnRFBandChange(BaseField f, object obj) => RecalculateFields();
         private void OnTxPowerChange(BaseField f, object obj) => RecalculateFields();
+        private void OnAntennaDutyChange(BaseField f, object obj) => RecalculateFields();
+        private void OnLinkRoleChange(BaseField f, object obj) => RecalculateFields();
+        private void OnMultiTransceiverChange(BaseField f, object obj)
+        {
+            SetFieldVisibility();
+            RecalculateFields();
+            MonoUtilities.RefreshPartContextWindow(part);
+        }
+        private void OnSecondaryRFBandChange(BaseField f, object obj) => RecalculateFields();
+        private void OnSecondaryLinkRoleChange(BaseField f, object obj) => RecalculateFields();
+        private void OnSecondaryAntennaDutyChange(BaseField f, object obj) => RecalculateFields();
         private void OnTechLevelChange(BaseField f, object obj)     // obj is the OLD value
         {
             ApplyTLColoring();
@@ -368,6 +455,36 @@ namespace RealAntennas
             }
         }
 
+        private void ConfigDutyOptions()
+        {
+            UI_ChooseOption op = (UI_ChooseOption)Fields[nameof(AntennaDutyMode)].uiControlEditor;
+            op.options = AntennaDutyExtensions.ModeNames;
+            op.display = AntennaDutyExtensions.ModeDisplayNames;
+            if (op.options.IndexOf(AntennaDutyMode) < 0)
+                AntennaDutyMode = AntennaDutyExtensions.DefaultModeName;
+
+            UI_ChooseOption op2 = (UI_ChooseOption)Fields[nameof(SecondaryAntennaDutyMode)].uiControlEditor;
+            op2.options = AntennaDutyExtensions.ModeNames;
+            op2.display = AntennaDutyExtensions.ModeDisplayNames;
+            if (op2.options.IndexOf(SecondaryAntennaDutyMode) < 0)
+                SecondaryAntennaDutyMode = AntennaDutyExtensions.DefaultModeName;
+        }
+
+        private void ConfigLinkRoleOptions()
+        {
+            UI_ChooseOption op = (UI_ChooseOption)Fields[nameof(LinkRoleMode)].uiControlEditor;
+            op.options = AntennaRFDirectionExtensions.ModeNames;
+            op.display = AntennaRFDirectionExtensions.ModeDisplayNames;
+            if (op.options.IndexOf(LinkRoleMode) < 0)
+                LinkRoleMode = AntennaRFDirectionExtensions.DefaultModeName;
+
+            UI_ChooseOption op2 = (UI_ChooseOption)Fields[nameof(SecondaryLinkRoleMode)].uiControlEditor;
+            op2.options = AntennaRFDirectionExtensions.ModeNames;
+            op2.display = AntennaRFDirectionExtensions.ModeDisplayNames;
+            if (op2.options.IndexOf(SecondaryLinkRoleMode) < 0)
+                SecondaryLinkRoleMode = AntennaRFDirectionExtensions.DefaultModeName;
+        }
+
         private void ConfigBandOptions()
         {
             List<string> availableBands = new List<string>();
@@ -383,6 +500,12 @@ namespace RealAntennas
             op.display = availableBandDisplayNames.ToArray();
             if (op.options.IndexOf(RFBand) < 0)
                 RFBand = op.options[op.options.Length - 1];
+
+            UI_ChooseOption op2 = (UI_ChooseOption)Fields[nameof(SecondaryRFBand)].uiControlEditor;
+            op2.options = availableBands.ToArray();
+            op2.display = availableBandDisplayNames.ToArray();
+            if (op2.options.IndexOf(SecondaryRFBand) < 0)
+                SecondaryRFBand = op2.options[op2.options.Length - 1];
         }
 
         public override string GetModuleDisplayName() => "RealAntenna";
@@ -400,6 +523,15 @@ namespace RealAntennas
             {
                 res = $"<color=green>Omni-directional</color>: {Gain:F1} dBi";
             }
+            res += $"\nAntenna Duty: <color=green>{AntennaDutyExtensions.ModeDisplayNames[Array.IndexOf(AntennaDutyExtensions.ModeNames, AntennaDutyMode)]}</color> (changeable in editor)";
+            res += $"\nLink Direction: <color=green>{AntennaRFDirectionExtensions.ModeDisplayNames[Array.IndexOf(AntennaRFDirectionExtensions.ModeNames, LinkRoleMode)]}</color>";
+            if (MultiTransceiver)
+            {
+                res += $"\n<color=cyan><b>Dual-Band Transceiver</b></color>";
+                res += $"\n  Secondary Band: <color=green>{SecondaryRFBand}-Band</color>";
+                res += $"\n  Secondary Duty: <color=green>{AntennaDutyExtensions.ModeDisplayNames[Array.IndexOf(AntennaDutyExtensions.ModeNames, SecondaryAntennaDutyMode)]}</color>";
+                res += $"\n  Secondary Direction: <color=green>{AntennaRFDirectionExtensions.ModeDisplayNames[Array.IndexOf(AntennaRFDirectionExtensions.ModeNames, SecondaryLinkRoleMode)]}</color>";
+            }
             return res;
         }
 
@@ -416,7 +548,9 @@ namespace RealAntennas
         {
             if (RACommNetScenario.CommNetEnabled && this?.vessel?.Connection?.Comm is RACommNode node)
             {
-                double data_rate = (node.Net as RACommNetwork).MaxDataRateToHome(node);
+                // Use the Science-capable path, not the general one - they can
+                // legitimately differ if the best path crosses a Telemetry-only hop.
+                double data_rate = (node.Net as RACommNetwork).MaxScienceDataRateToHome(node);
                 packetInterval = DefaultPacketInterval;
                 packetSize = Convert.ToSingle(data_rate * packetInterval);
                 packetSize *= StockRateModifier;
@@ -427,11 +561,27 @@ namespace RealAntennas
         public override bool CanTransmit()
         {
             SetTransmissionParams();
+            if (!AnyTransceiverCanHandleScience)
+                return false;
             return base.CanTransmit();
+        }
+
+        // True if the primary or (if dual-band) secondary transceiver can
+        // carry Science.
+        private bool AnyTransceiverCanHandleScience =>
+            RAAntenna.CanHandleScience || (MultiTransceiver && RASecondaryAntenna != null && RASecondaryAntenna.CanHandleScience);
+
+        private bool RejectIfScienceNotAllowed()
+        {
+            if (AnyTransceiverCanHandleScience) return false;
+            ScreenMessages.PostScreenMessage($"{part.partInfo.title} is set to Telemetry-only and cannot transmit science data. Switch its Antenna Duty to Science or Both.", 6f, ScreenMessageStyle.UPPER_CENTER);
+            Debug.LogWarning($"{ModTag} Blocked science transmission on {part.partInfo.title}: Antenna Duty = {AntennaDutyMode}");
+            return true;
         }
 
         public override void TransmitData(List<ScienceData> dataQueue)
         {
+            if (RejectIfScienceNotAllowed()) return;
             SetTransmissionParams();
             base.TransmitData(dataQueue);
             if (!scienceMonitorActive)
@@ -440,6 +590,11 @@ namespace RealAntennas
 
         public override void TransmitData(List<ScienceData> dataQueue, Callback callback)
         {
+            if (RejectIfScienceNotAllowed())
+            {
+                callback?.Invoke();
+                return;
+            }
             SetTransmissionParams();
             base.TransmitData(dataQueue, callback);
             if (!scienceMonitorActive)
@@ -479,9 +634,13 @@ namespace RealAntennas
 
         #region Cost and Mass Modifiers
         public float GetModuleCost(float defaultCost, ModifierStagingSituation sit) =>
-            Condition != AntennaCondition.Disabled ? RAAntenna.TechLevelInfo.BaseCost + (RAAntenna.TechLevelInfo.CostPerWatt * RATools.LinearScale(TxPower)/1000) : 0;
+            Condition != AntennaCondition.Disabled
+                ? (RAAntenna.TechLevelInfo.BaseCost + (RAAntenna.TechLevelInfo.CostPerWatt * RATools.LinearScale(TxPower) / 1000)) * (MultiTransceiver ? multiTransceiverCostMult : 1f)
+                : 0;
         public float GetModuleMass(float defaultMass, ModifierStagingSituation sit) =>
-            Condition != AntennaCondition.Disabled && applyMassModifier ? (RAAntenna.TechLevelInfo.BaseMass + (RAAntenna.TechLevelInfo.MassPerWatt * RATools.LinearScale(TxPower) / 1000)) / 1000 : 0;
+            Condition != AntennaCondition.Disabled && applyMassModifier
+                ? ((RAAntenna.TechLevelInfo.BaseMass + (RAAntenna.TechLevelInfo.MassPerWatt * RATools.LinearScale(TxPower) / 1000)) / 1000) * (MultiTransceiver ? multiTransceiverMassMult : 1f)
+                : 0;
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
         #endregion
@@ -497,7 +656,7 @@ namespace RealAntennas
         {
             bool consumesPower = Condition != AntennaCondition.Disabled && Condition != AntennaCondition.PermanentShutdown;
             // RAAntenna.IdlePowerDraw is in kW (ec/s), PowerDrawLinear is in mW
-            double ec = consumesPower ? RAAntenna.IdlePowerDraw + (RAAntenna.PowerDrawLinear * 1e-6 * plannerActiveTxTime) : 0;
+            double ec = consumesPower ? TotalIdlePowerDraw + (RAAntenna.PowerDrawLinear * 1e-6 * plannerActiveTxTime) : 0;
             plannerECConsumption = new KeyValuePair<string, double>("ElectricCharge", -ec);
         }
 

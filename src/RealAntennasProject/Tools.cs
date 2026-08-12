@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using CommNet;
 using System.Linq;
 using Unity.Mathematics;
@@ -55,7 +55,7 @@ namespace RealAntennas
             {
                 foreach (RealAntenna ra in node.RAAntennaList)
                 {
-                    if (peer.Compatible(ra) && ra.Gain > highestGain)
+                    if (peer.EitherDirectionCompatible(ra) && ra.Gain > highestGain)
                     {
                         highestGain = ra.Gain;
                         result = ra;

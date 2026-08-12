@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -25,7 +25,12 @@ namespace RealAntennas.Kerbalism
                     CommNet.CommPath path = new CommNet.CommPath();
                     (node.Net as RACommNetwork).FindHome(node, path);
                     status = !raCNV.IsConnectedHome ? 2 : path.Count == 1 ? 0 : 1;
-                    rate = (node.Net as RACommNetwork).MaxDataRateToHome(node) / 8e6;    // Convert rate from bps to MBps;
+                    // FKerbalism does its own science-file transmission
+                    // sim off this single 'rate' field rather than going through
+                    // ModuleRealAntenna.TransmitData/CanTransmit, so the duty gate
+                    // has to be applied here instead - report 0 if any hop on the
+                    // current best path is Telemetry-only.
+                    rate = (node.Net as RACommNetwork).MaxScienceDataRateToHome(node) / 8e6;    // Convert rate from bps to MBps;
                     if (transmitting) ec += ra.PowerDrawLinear * packetInterval * 1e-6;    // 1 EC/sec = 1KW.  Draw(mw) * interval(sec) * mW -> kW conversion
                     if (node[path.First.end] is RACommLink link)
                     {

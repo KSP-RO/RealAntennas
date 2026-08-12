@@ -1,4 +1,4 @@
-﻿using ClickThroughFix;
+using ClickThroughFix;
 using System;
 using System.Collections.Generic;
 using UniLinq;
@@ -156,7 +156,7 @@ namespace RealAntennas
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
-            if (!primaryAntenna.Compatible(fixedAntenna) && fixedAntenna.ParentNode is RACommNode raNode && raNode.RAAntennaList.FirstOrDefault(x => x.Compatible(primaryAntenna)) is RealAntenna ra)
+            if (!primaryAntenna.EitherDirectionCompatible(fixedAntenna) && fixedAntenna.ParentNode is RACommNode raNode && raNode.RAAntennaList.FirstOrDefault(x => x.EitherDirectionCompatible(primaryAntenna)) is RealAntenna ra)
             {
                 ScreenMessages.PostScreenMessage($"{fixedAntenna.ParentNode.displayName} {fixedAntenna.Name} band changed from {fixedAntenna.RFBand.name} to {ra.RFBand.name} to match with {primaryAntenna.Name} band", 2, ScreenMessageStyle.UPPER_CENTER);
                 fixedAntenna = ra;
@@ -216,6 +216,10 @@ namespace RealAntennas
             foreach (var s in rateStrings)
                 GUILayout.Label(s);
 
+            float minUplinkRateSetting = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MinControlUplinkBitRate;
+            if (minUplinkRateSetting > 0)
+                GUILayout.Label($"Difficulty setting - Min. Uplink for Control: {RATools.PrettyPrintDataRate(minUplinkRateSetting)}");
+
             GUILayout.EndVertical();
 
             GUILayout.Space(SPACING);
@@ -256,11 +260,20 @@ namespace RealAntennas
                     ShipConstruct sc = EditorLogic.RootPart.ship;
                     foreach (Part p in sc.Parts)
                         foreach (ModuleRealAntenna mra in p.FindModulesImplementing<ModuleRealAntenna>())
+                        {
                             if (GUILayout.Button($"{sc.shipName} {mra.RAAntenna.ToStringShort()}", buttonStyle))
                             {
                                 antenna = mra.RAAntenna;
                                 res = true;
                             }
+                            // dual-band parts have a second, independent
+                            // transceiver that needs to be individually selectable too.
+                            if (mra.MultiTransceiver && GUILayout.Button($"{sc.shipName} {mra.RASecondaryAntenna.ToStringShort()}", buttonStyle))
+                            {
+                                antenna = mra.RASecondaryAntenna;
+                                res = true;
+                            }
+                        }
 
                     foreach (var x in protoVesselAntennaCache)
                         foreach (RealAntenna ra in x.Value)
@@ -305,7 +318,7 @@ namespace RealAntennas
         {
             List<RealAntenna> antennas = new List<RealAntenna>();
             foreach (Network.RACommNetHome home in stations) 
-                foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.Compatible(peer))) 
+                foreach (RealAntenna ra in home.Comm.RAAntennaList.Where(x => x.EitherDirectionCompatible(peer))) 
                     antennas.Add(ra);
 
             if (ascending) 
@@ -318,7 +331,7 @@ namespace RealAntennas
         {
             RealAntenna best = null;
             foreach (var station in stations)
-                foreach (RealAntenna ra in station.Comm.RAAntennaList.Where(x => x.Compatible(peer)))
+                foreach (RealAntenna ra in station.Comm.RAAntennaList.Where(x => x.EitherDirectionCompatible(peer)))
                 {
                     best ??= ra;
                     best = (best.Gain > ra.Gain) ? best : ra;
@@ -339,6 +352,17 @@ namespace RealAntennas
                         RealAntenna ra = new RealAntennaDigital(part.partInfo.title) { ParentNode = null };
                         ra.LoadFromConfigNode(snap.moduleValues);
                         antennas.Add(ra);
+
+                        bool multiTransceiver = false;
+                        snap.moduleValues.TryGetValue(nameof(ModuleRealAntenna.MultiTransceiver), ref multiTransceiver);
+                        if (multiTransceiver)
+                        {
+                            RealAntenna ra2 = new RealAntennaDigital($"{part.partInfo.title} (Secondary)") { ParentNode = null };
+                            ra2.LoadSecondaryFromConfigNode(snap.moduleValues);
+                            // One dish, one target - see the same note in RACommNetVessel.
+                            if (ra2.CanTarget) ra2.Target = ra.Target;
+                            antennas.Add(ra2);
+                        }
                     }
                 }
                 if (antennas.Count > 0)
@@ -363,6 +387,16 @@ namespace RealAntennas
             else if (distance > 1e6) siSelector = 1;
             else siSelector = 0;
             val = distance / Math.Pow(1e3, siSelector + 1);
+        }
+
+        
+        // Describes the connection state for one direction-pair of rates.
+        private static string ConnectionNote(float downlinkRate, float uplinkRate)
+        {
+            if (downlinkRate == 0 && uplinkRate == 0) return $"  {sNoConnection}";
+            if (downlinkRate == 0) return "  <color=yellow>(Uplink only - no downlink)</color>";
+            if (uplinkRate == 0) return "  <color=yellow>(Downlink only - no uplink)</color>";
+            return string.Empty;
         }
 
         private void FireOnce()
@@ -440,6 +474,15 @@ namespace RealAntennas
             precompute.DoThings(bodies, nodes, true);
             precompute.SimulateComplete(ref net.connectionDebugger, nodes, log: false);
 
+            // Snapshot how many debug-info entries exist after the NEAR run, so we
+            // can tell near-distance entries apart from far-distance ones below
+            // without assuming a fixed count/order per distance. That assumption
+            // (exactly 2 entries per distance, one per direction) breaks as soon as
+            // an antenna is Duty- or RFDirection-restricted to only one direction,
+            // since then only 1 entry (not 2) gets added per distance.
+            connectionDebugger.items.TryGetValue(fixedAntennaCopy, out var resultsAfterNear);
+            int nearEntryCount = resultsAfterNear?.Count ?? 0;
+
             nodes = new List<CommNet.CommNode> { fixedNode, primaryFarNode };
             peerAntennaCopy.ParentNode = primaryFarNode;
             net.connectionDebugger = connectionDebugger;
@@ -451,21 +494,40 @@ namespace RealAntennas
             net.connectionDebugger = debugger;
             rateStrings.Clear();
             connectionDebugger.visible[fixedAntennaCopy] = debuggerDisplayState;
-            if (connectionDebugger.items.TryGetValue(fixedAntennaCopy, out var results))
+            connectionDebugger.items.TryGetValue(fixedAntennaCopy, out var allResults);
+            if (allResults != null)
             {
-                int i = 0;
-                float[] rates = { 0, 0, 0, 0 };
-                foreach (var res in results)
+                // res.tx == peerAntennaCopy means the peer is transmitting, ie the
+                // downlink (peer -> fixed) direction. Otherwise fixed is
+                // transmitting, ie the uplink/command (fixed -> peer) direction.
+                // Either or both may be entirely absent for a one-directional
+                // (Uplink-only/Downlink-only) antenna
+                float nearDown = 0, nearUp = 0, farDown = 0, farUp = 0;
+                for (int idx = 0; idx < allResults.Count; idx++)
                 {
-                    int txInd = res.tx == fixedAntennaCopy ? 1 : 0;
-                    int index = 2 * (i / 2) + txInd;  // Integer math: 1 / 2 = 0
-                    rates[index] = res.dataRate;    // 0 = Near Tx.  3 = Far Rx.
-                    i++;
+                    var res = allResults[idx];
+                    bool isNear = idx < nearEntryCount;
+                    bool isDownlink = res.tx == peerAntennaCopy;
+                    if (isNear && isDownlink) nearDown = res.dataRate;
+                    else if (isNear) nearUp = res.dataRate;
+                    else if (isDownlink) farDown = res.dataRate;
+                    else farUp = res.dataRate;
                 }
-                string sMax = $"Tx/Rx rate at max distance: {RATools.PrettyPrintDataRate(rates[2])}/{RATools.PrettyPrintDataRate(rates[3])}";
-                string sMin = $"Tx/Rx rate at min distance: {RATools.PrettyPrintDataRate(rates[0])}/{RATools.PrettyPrintDataRate(rates[1])}";
-                if (rates[2] == 0 || rates[3] == 0) sMax += $"  {sNoConnection}";
-                if (rates[0] == 0 || rates[1] == 0) sMin += $"  {sNoConnection}";
+
+                string sMax = $"Tx/Rx rate at max distance: {RATools.PrettyPrintDataRate(farDown)}/{RATools.PrettyPrintDataRate(farUp)}";
+                string sMin = $"Tx/Rx rate at min distance: {RATools.PrettyPrintDataRate(nearDown)}/{RATools.PrettyPrintDataRate(nearUp)}";
+                sMax += ConnectionNote(farDown, farUp);
+                sMin += ConnectionNote(nearDown, nearUp);
+
+                // "Rx" here is the peer receiving, ie the command uplink
+                // (Kerbin/relay -> peer) - compare it against the difficulty-set
+                // minimum uplink rate for probe control.
+                float minUplinkRate = HighLogic.CurrentGame.Parameters.CustomParams<RAParameters>().MinControlUplinkBitRate;
+                if (minUplinkRate > 0)
+                {
+                    if (farUp > 0) sMax += (farUp >= minUplinkRate) ? "  <color=lime>[Uplink OK for control]</color>" : "  <color=orange>[Uplink below control minimum]</color>";
+                    if (nearUp > 0) sMin += (nearUp >= minUplinkRate) ? "  <color=lime>[Uplink OK for control]</color>" : "  <color=orange>[Uplink below control minimum]</color>";
+                }
 
                 rateStrings.Add(sMax);
                 rateStrings.Add(sMin);

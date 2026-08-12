@@ -45,6 +45,8 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Compile Include="AntennaDuty.cs" />
+    <Compile Include="AntennaRFDirection.cs" />
     <Compile Include="HomeNodeTypes.cs" />
     <Compile Include="MapUI\Settings.cs" />
     <Compile Include="Network\ConnectionDebugger.cs" />

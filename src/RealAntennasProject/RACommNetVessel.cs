@@ -1,4 +1,4 @@
-﻿using Expansions.Serenity.DeployedScience.Runtime;
+using Expansions.Serenity.DeployedScience.Runtime;
 using Experience.Effects;
 using KSPCommunityFixes;
 using System;
@@ -222,6 +222,18 @@ namespace RealAntennas
                             if (DeployedLoaded(ant.part)) antennaList.Add(ant.RAAntenna);
                             else inactiveAntennas.Add(ant.RAAntenna);
                             ValidateAntennaTarget(ant.RAAntenna);
+
+                            // The secondary transceiver is an independent RealAntenna
+                            // for network purposes, so it gets its own list entry.
+                            // It mirrors the primary's target rather than having its own
+                            if (ant.MultiTransceiver && ant.RASecondaryAntenna != null)
+                            {
+                                ant.RASecondaryAntenna.ParentNode = Comm;
+                                if (DeployedLoaded(ant.part)) antennaList.Add(ant.RASecondaryAntenna);
+                                else inactiveAntennas.Add(ant.RASecondaryAntenna);
+                                if (ant.RASecondaryAntenna.CanTarget)
+                                    ant.RASecondaryAntenna.Target = ant.RAAntenna.Target;
+                            }
                         }
                     }
                 }
@@ -248,6 +260,22 @@ namespace RealAntennas
                             if (DeployedUnloaded(part)) antennaList.Add(ra);
                             else inactiveAntennas.Add(ra);
                             ValidateAntennaTarget(ra);
+
+                            bool multiTransceiver = false;
+                            snap.moduleValues.TryGetValue(nameof(ModuleRealAntenna.MultiTransceiver), ref multiTransceiver);
+                            if (multiTransceiver)
+                            {
+                                RealAntenna ra2 = new RealAntennaDigital($"{part.partPrefab.partInfo.title} (Secondary)") { ParentNode = Comm, ParentSnapshot = snap };
+                                ra2.LoadSecondaryFromConfigNode(snap.moduleValues);
+                                if (DeployedUnloaded(part)) antennaList.Add(ra2);
+                                else inactiveAntennas.Add(ra2);
+                                // No .Parent here (unloaded vessel, no live PartModule),
+                                // so the Target-setter propagation can't fire - mirror
+                                // explicitly instead of validating ra2 independently,
+                                // for the same one-dish-one-target reason as above.
+                                if (ra2.CanTarget)
+                                    ra2.Target = ra.Target;
+                            }
                         }
                     }
                 }

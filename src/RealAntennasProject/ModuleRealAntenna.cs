@@ -135,6 +135,7 @@ namespace RealAntennas
         {
             GameEvents.OnGameSettingsApplied.Remove(ApplyGameSettings);
             GameEvents.OnPartUpgradePurchased.Remove(OnPartUpgradePurchased);
+            Targeting.AntennaTargetManager.ReleaseTarget(RAAntenna);
         }
 
         public void Configure(ConfigNode node)

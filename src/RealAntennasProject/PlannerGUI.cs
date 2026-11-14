@@ -25,6 +25,7 @@ namespace RealAntennas
         public bool RequestUpdate { get; set; } = false;
 
         public RealAntenna primaryAntenna, fixedAntenna;
+        private RealAntenna fixedAntennaCopy, peerAntennaCopy;
         public ModuleRealAntenna parentPartModule;
         private GameObject fixedGO, primaryNearGO, primaryFarGO;
         private RACommNode fixedNode, primaryNearNode, primaryFarNode;
@@ -79,6 +80,8 @@ namespace RealAntennas
             fixedGO.DestroyGameObject();
             primaryNearGO.DestroyGameObject();
             primaryFarGO.DestroyGameObject();
+            ReleaseAntennaCopyTargets();
+            ReleaseProtoVesselAntennaTargets(protoVesselAntennaCache);
             parentPartModule.plannerGUI = null;
             GameEvents.onEditorPodDeleted.Remove(OnEditorRestart);
             GameEvents.onEditorRestart.Remove(OnEditorRestart);
@@ -326,8 +329,23 @@ namespace RealAntennas
             return best;
         }
 
+        private void ReleaseProtoVesselAntennaTargets(Dictionary<ProtoVessel, List<RealAntenna>> dict)
+        {
+            foreach (List<RealAntenna> antennas in dict.Values)
+                foreach (RealAntenna ra in antennas)
+                    Targeting.AntennaTargetManager.ReleaseTarget(ra);
+        }
+
+        private void ReleaseAntennaCopyTargets()
+        {
+            Targeting.AntennaTargetManager.ReleaseTarget(fixedAntennaCopy);
+            Targeting.AntennaTargetManager.ReleaseTarget(peerAntennaCopy);
+            fixedAntennaCopy = peerAntennaCopy = null;
+        }
+
         private void DiscoverProtoVesselAntennas(Dictionary<ProtoVessel, List<RealAntenna>> dict)
         {
+            ReleaseProtoVesselAntennaTargets(dict);
             dict.Clear();
             foreach (ProtoVessel pv in HighLogic.CurrentGame.flightState.protoVessels)
             {
@@ -369,8 +387,9 @@ namespace RealAntennas
         {
             if (!(fixedAntenna is RealAntenna && primaryAntenna is RealAntenna))
                 return;
-            var fixedAntennaCopy = new RealAntennaDigital(fixedAntenna);
-            var peerAntennaCopy = new RealAntennaDigital(primaryAntenna);
+            ReleaseAntennaCopyTargets();
+            fixedAntennaCopy = new RealAntennaDigital(fixedAntenna);
+            peerAntennaCopy = new RealAntennaDigital(primaryAntenna);
 
             if (fixedAntennaCopy.CanTarget)
             {

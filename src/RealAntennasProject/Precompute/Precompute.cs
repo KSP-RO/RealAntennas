@@ -62,8 +62,6 @@ namespace RealAntennas.Precompute
         public NativeArray<AntennaData> antennaDataList;
         public NativeList<int4> allAntennaPairs = new NativeList<int4>(Allocator.Persistent);
         public NativeList<int2> allNodePairs = new NativeList<int2>(Allocator.Persistent);
-        // Number of nodes that allNodePairs and allAntennaPairs were built from.
-        private int pairedNodeCount;
         public NativeHashMap<int2, int> bestMap;
         public NativeHashMap<int2, bool> validMap;
         private JobHandle precomputeJobHandle;
@@ -134,7 +132,6 @@ namespace RealAntennas.Precompute
             nodes ??= RACommNetScenario.RACN.Nodes;
             antennaDataList = GatherAllAntennas(allAntennas, allAntennasReverse, nodes);
             PairAllAntennasAndNodes(allAntennaPairs, allNodePairs, allAntennas, nodes);
-            pairedNodeCount = nodes?.Count ?? 0;
         }
 
         // Process:
@@ -453,7 +450,7 @@ namespace RealAntennas.Precompute
 
             Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.PairLoop");
             List<CommNet.CommNode> nodes = RACN.Nodes;
-            int nodeCount = math.min(pairedNodeCount, nodes.Count);
+            int nodeCount = nodes.Count;
             // Each unordered pair of distinct nodes is visited once.
             // Self-pairs and the mirrored half are never visited
             for (int x = 0; x < nodeCount; x++)

@@ -66,13 +66,15 @@ namespace RealAntennas.Network
             Debug.Log($"{ModTag} Firing onNetworkInitialized()");
             GameEvents.CommNet.OnNetworkInitialized.Fire();
             Debug.Log($"{ModTag} Completed onNetworkInitialized()");
-            (CommNet as RACommNetwork).precompute.Initialize();
+            var RACN = CommNet as RACommNetwork;
+            RACN.precompute.Initialize();
+            RACN.ClearNodeListChanged();
         }
 
         protected override void Update()
         {
             var RACN = commNet as RACommNetwork;
-            if (requestInit)
+            if (requestInit || RACN.NodeListChanged)
                 RACN.Abort();
             else
                 RACN.CompleteRebuild();
@@ -82,11 +84,12 @@ namespace RealAntennas.Network
         {
             Profiler.BeginSample("RA UpdateEarly");
             var RACN = commNet as RACommNetwork;
-            if (requestInit)
+            if (requestInit || RACN.NodeListChanged)
             {
                 RACN.Validate();
                 RACN.precompute.Initialize();
                 requestInit = false;
+                RACN.ClearNodeListChanged();
             }
 
             double interval = System.Math.Min(packedInterval, unpackedInterval);

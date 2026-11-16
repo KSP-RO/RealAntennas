@@ -25,6 +25,11 @@ namespace RealAntennas
         public readonly EventVoid NetworkUpdateComplete = new EventVoid("Network Rebuild Complete");
         public double LastUpdateUT { get; private set; } = 0;
 
+        // True when a node was added or removed since the precompute data was last initialized.
+        // The precompute data refers to nodes by their index in the node list, so it is stale once the list changes.
+        public bool NodeListChanged { get; private set; }
+        public void ClearNodeListChanged() => NodeListChanged = false;
+
         public override CommNode Add(CommNode conn)
         {
             if (!(conn is RACommNode))
@@ -32,7 +37,19 @@ namespace RealAntennas
                 Debug.LogWarning($"{ModTag} Wrong commnode type, so ignoring.");
                 return conn;
             }
-            return base.Add(conn);
+            int count = nodes.Count;
+            CommNode res = base.Add(conn);
+            if (nodes.Count != count)
+                NodeListChanged = true;
+            return res;
+        }
+
+        public override bool Remove(CommNode conn)
+        {
+            bool removed = base.Remove(conn);
+            if (removed)
+                NodeListChanged = true;
+            return removed;
         }
 
         protected override bool SetNodeConnection(CommNode a, CommNode b)
@@ -187,7 +204,11 @@ namespace RealAntennas
         protected override void UpdateNetwork()
         {
             //base.UpdateNetwork();
-            precompute.Complete(this);
+            // The job results refer to nodes by index, so they must not be applied to a changed node list.
+            if (NodeListChanged)
+                precompute.Abort();
+            else
+                precompute.Complete(this);
         }
 
         public void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);

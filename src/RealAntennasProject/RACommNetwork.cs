@@ -285,6 +285,19 @@ namespace RealAntennas
 
         private readonly HashSet<RACommNode> sptSet = new HashSet<RACommNode>();
         private readonly List<RACommNode> pathSortList = new List<RACommNode>();
+
+        // Cached so that each pathfinding call does not allocate a new delegate.
+        private static readonly Func<CommNode, CommNode, bool> isHomeFunc = IsHome;
+        private static readonly Func<CommNode, CommNode, bool> isControlSourceFunc = IsControlSource;
+
+        // Stock FindHome passes IsHome as a method group, which creates a new delegate every call.
+        // We override it to passes cached static delegates instead.
+        public override bool FindHome(CommNode from, CommPath path = null) =>
+            FindClosestWhere(from, path, isHomeFunc) != null;
+
+        public override bool FindClosestControlSource(CommNode from, CommPath path = null) =>
+            FindClosestWhere(from, path, isControlSourceFunc) != null;
+
         public override CommNode FindClosestWhere(CommNode cnStart, CommPath path, Func<CommNode, CommNode, bool> where)
         {
             if (!(cnStart is RACommNode start && where != null))

@@ -492,7 +492,17 @@ namespace RealAntennas.Precompute
                             RevMetric);
                     } else
                     {
-                        RACN.DoDisconnect(RACN.Nodes[pair.x], RACN.Nodes[pair.y]);
+                        // Links are always stored on both nodes, so one lookup is enough to know if a link exists.
+                        // Stock Disconnect does two dictionary lookups for every unlinked pair. We can remove half
+                        // of the cost by running a single lookup here.
+                        CommNet.CommNode a = RACN.Nodes[pair.x];
+                        CommNet.CommNode b = RACN.Nodes[pair.y];
+                        if (a.TryGetValue(b, out _))
+                        {
+                            Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.Disconnect");
+                            RACN.DoDisconnect(a, b);
+                            Profiler.EndSample();
+                        }
                     }
                 }
             }

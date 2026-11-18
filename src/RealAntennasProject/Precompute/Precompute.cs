@@ -448,21 +448,24 @@ namespace RealAntennas.Precompute
             Profiler.EndSample();
             Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages");
 
-            foreach (var pair in allNodePairs)
+            Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.PairLoop");
+            List<CommNet.CommNode> nodes = RACN.Nodes;
+            int nodeCount = nodes.Count;
+            // Each unordered pair of distinct nodes is visited once.
+            // Self-pairs and the mirrored half are never visited
+            for (int x = 0; x < nodeCount; x++)
             {
-                if (pair.x <= pair.y && pair.y < RACN.Nodes.Count)
+                for (int y = x + 1; y < nodeCount; y++)
                 {
-                    var p2 = new int2(pair.y, pair.x);
-                    if (validMap.TryGetValue(pair, out bool valid) && valid &&
-                        validMap.TryGetValue(p2, out bool valid2) && valid2 &&
-                        bestMap.TryGetValue(pair, out int row) &&
-                        bestMap.TryGetValue(p2, out int row2) &&
+                    // bestMap only has entries for node pairs that passed the validity filters.
+                    if (bestMap.TryGetValue(new int2(x, y), out int row) &&
+                        bestMap.TryGetValue(new int2(y, x), out int row2) &&
                         row >= 0 && row2 >= 0 &&
                         dataRate[row] > 0 && dataRate[row2] > 0)
                     {
                         // Connect Successful
-                        RACommNode a = RACN.Nodes[pair.x] as RACommNode;
-                        RACommNode b = RACN.Nodes[pair.y] as RACommNode;
+                        RACommNode a = nodes[x] as RACommNode;
+                        RACommNode b = nodes[y] as RACommNode;
                         int4 fwdQuad = allValidAntennaPairs[row];
                         int4 revQuad = allValidAntennaPairs[row2];
                         /*
@@ -478,6 +481,7 @@ namespace RealAntennas.Precompute
                         double FwdMetric = 1.0 - ((float)rateSteps[row] / (maxSteps[row] + 1));
                         double RevMetric = 1.0 - ((float)rateSteps[row2] / (maxSteps[row2] + 1));
                         //RACN.MakeLink(fwdTx, fwdRx, revTx, revRx, a, b, (a.position - b.position).magnitude, fwd, rev, FwdBestDataRate, FwdMetric, RevMetric);
+                        Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.MakeLink");
                         RACN.MakeLink(allAntennasReverse[fwdQuad.z],
                             allAntennasReverse[fwdQuad.w],
                             allAntennasReverse[revQuad.z],
@@ -490,16 +494,34 @@ namespace RealAntennas.Precompute
                             maxDataRate[row],
                             FwdMetric,
                             RevMetric);
+                        Profiler.EndSample();
                     } else
                     {
-                        RACN.DoDisconnect(RACN.Nodes[pair.x], RACN.Nodes[pair.y]);
+                        // Links are always stored on both nodes, so one lookup is enough to know if a link exists.
+                        // Stock Disconnect does two dictionary lookups for every unlinked pair. We can remove half
+                        // of the cost by running a single lookup here.
+                        CommNet.CommNode a = nodes[x];
+                        CommNet.CommNode b = nodes[y];
+                        if (a.TryGetValue(b, out _))
+                        {
+                            Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.Disconnect");
+                            RACN.DoDisconnect(a, b);
+                            Profiler.EndSample();
+                        }
                     }
                 }
             }
+            Profiler.EndSample();
 
             if (RACN.connectionDebugger is Network.ConnectionDebugger)
+            {
+                Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.DebugInfo");
                 GatherDebugInfo(RACN.DebugAntenna, RACN.Nodes, ref RACN.connectionDebugger);
+                Profiler.EndSample();
+            }
+            Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.Dispose");
             DisposeJobData();
+            Profiler.EndSample();
             Profiler.EndSample();
         }
 

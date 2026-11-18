@@ -121,9 +121,10 @@ namespace RealAntennas.Precompute
 
         public void Destroy()
         {
+            Abort();
             if (antennaDataList.IsCreated) antennaDataList.Dispose();
-            allAntennaPairs.Dispose();
-            DisposeJobData();
+            if (allAntennaPairs.IsCreated) allAntennaPairs.Dispose();
+            if (allNodePairs.IsCreated) allNodePairs.Dispose();
         }
 
         public void Initialize(List<CommNet.CommNode> nodes = null)

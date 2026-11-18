@@ -36,6 +36,14 @@ namespace RealAntennas.Network
             Debug.Log($"{ModTag} Patching CommNet's TargetScenes");
             psm ??= GetCommNetScenarioModule();
             if (psm != null) psm.SetTargetScenes(new GameScenes[] { GameScenes.CREDITS });
+
+            // Stock CommNetScenario may already be loaded in the current scene.
+            // Remove it, otherwise RACommNetScenario.OnAwake() logs an error about a duplicate instance.
+            if (CommNet.CommNetScenario.Instance is CommNet.CommNetScenario stock && !(stock is RACommNetScenario))
+            {
+                Debug.Log($"{ModTag} Removing stock CommNetScenario instance");
+                ScenarioRunner.RemoveModule(stock);
+            }
         }
     }
 }

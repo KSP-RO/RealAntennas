@@ -61,16 +61,7 @@ namespace RealAntennas
             MapSettings = new MapUI.Settings();
             RebuildHomes();
             if (CommNetEnabled)     // Don't self-delete if we are not enabled.
-            {
-                // Stock CommNetScenario may have loaded before us in this scene.
-                // Remove it now, otherwise base.OnAwake() logs an error about a duplicate instance.
-                if (Instance != null && Instance != this)
-                {
-                    Debug.Log($"{ModTag} Removing existing {Instance.GetType().Name} instance");
-                    ScenarioRunner.RemoveModule(Instance);
-                }
                 base.OnAwake();     // Will set CommNetScenario.Instance to this
-            }
         }
 
         public override void OnLoad(ConfigNode gameNode)

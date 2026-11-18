@@ -291,7 +291,7 @@ namespace RealAntennas
         private static readonly Func<CommNode, CommNode, bool> isControlSourceFunc = IsControlSource;
 
         // Stock FindHome passes IsHome as a method group, which creates a new delegate every call.
-        // We override it to passes cached static delegates instead.
+        // We override it to pass cached static delegates instead.
         public override bool FindHome(CommNode from, CommPath path = null) =>
             FindClosestWhere(from, path, isHomeFunc) != null;
 

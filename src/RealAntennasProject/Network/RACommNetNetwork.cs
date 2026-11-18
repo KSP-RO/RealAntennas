@@ -62,6 +62,11 @@ namespace RealAntennas.Network
         {
             Debug.Log($"{ModTag} ResetNetwork()");
 
+            if (CommNet is RACommNetwork oldNet)
+            {
+                oldNet.Abort();
+                oldNet.precompute.Destroy();
+            }
             CommNet = new RACommNetwork();
             Debug.Log($"{ModTag} Firing onNetworkInitialized()");
             GameEvents.CommNet.OnNetworkInitialized.Fire();

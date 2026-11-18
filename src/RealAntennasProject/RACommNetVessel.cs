@@ -120,6 +120,7 @@ namespace RealAntennas
         {
             GameEvents.CommNet.OnNetworkInitialized.Remove(OnNetworkInitialized);
             GameEvents.onPlanetariumTargetChanged.Remove(OnMapFocusChange);
+            ReleaseUnloadedAntennaTargets();
             base.OnDestroy();
             comm?.Net.Remove(comm);
             comm = null;
@@ -205,6 +206,7 @@ namespace RealAntennas
 
         public List<RealAntenna> DiscoverAntennas()
         {
+            ReleaseUnloadedAntennaTargets();
             antennaList.Clear();
             inactiveAntennas.Clear();
             (RACommNetScenario.Instance as RACommNetScenario)?.Network?.InvalidateCache();
@@ -254,6 +256,23 @@ namespace RealAntennas
             }
             return antennaList;
         }
+
+        // Antennas built from ProtoPartModuleSnapshots are recreated on every discovery.
+        // Antennas owned by a ModuleRealAntenna release their target when the module is destroyed.
+        private void ReleaseUnloadedAntennaTargets()
+        {
+            foreach (RealAntenna ra in antennaList)
+            {
+                if (ra.ParentSnapshot != null)
+                    Targeting.AntennaTargetManager.ReleaseTarget(ra);
+            }
+            foreach (RealAntenna ra in inactiveAntennas)
+            {
+                if (ra.ParentSnapshot != null)
+                    Targeting.AntennaTargetManager.ReleaseTarget(ra);
+            }
+        }
+
         private void ValidateAntennaTarget(RealAntenna ra)
         {
             if (ra.CanTarget && ra.Target?.Validate() != true)

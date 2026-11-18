@@ -15,6 +15,17 @@ namespace RealAntennas.Targeting
             guis.Clear();
         }
 
+        // Target GameObjects can be parented to CelestialBodies, which survive scene changes.
+        public void OnDestroy()
+        {
+            foreach (GameObject go in targets.Values)
+            {
+                if (go != null)
+                    Destroy(go);
+            }
+            targets.Clear();
+        }
+
         public static AntennaTargetGUI AcquireGUI(RealAntenna ant)
         {
             if (!guis.ContainsKey(ant))
@@ -33,6 +44,16 @@ namespace RealAntennas.Targeting
             if (!targets.ContainsKey(a))
                 targets[a] = new GameObject($"{a.ParentNode?.name}:{a.Name}.Target");
             return targets[a];
+        }
+
+        public static void ReleaseTarget(RealAntenna a)
+        {
+            if (a != null && targets.TryGetValue(a, out var go))
+            {
+                targets.Remove(a);
+                if (go != null)
+                    Destroy(go);
+            }
         }
 
         public static void Release(RealAntenna a, AntennaTargetGUI _)

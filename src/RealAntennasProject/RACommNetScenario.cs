@@ -56,7 +56,6 @@ namespace RealAntennas
             {
                 RealAntennas.Network.CommNetPatcher.UnloadCommNet();
                 DestroyNetwork();
-                Debug.Log($"{ModTag} Ignore CommNetScenario ERR immediately after Homes rebuild logging.");
             }
             Targeting.TextureTools.Initialize();
             MapSettings = new MapUI.Settings();

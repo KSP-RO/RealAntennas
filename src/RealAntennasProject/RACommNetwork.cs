@@ -37,19 +37,14 @@ namespace RealAntennas
                 Debug.LogWarning($"{ModTag} Wrong commnode type, so ignoring.");
                 return conn;
             }
-            int count = nodes.Count;
-            CommNode res = base.Add(conn);
-            if (nodes.Count != count)
-                NodeListChanged = true;
-            return res;
+            NodeListChanged = true;
+            return base.Add(conn);
         }
 
         public override bool Remove(CommNode conn)
         {
-            bool removed = base.Remove(conn);
-            if (removed)
-                NodeListChanged = true;
-            return removed;
+            NodeListChanged = true;
+            return base.Remove(conn);
         }
 
         protected override bool SetNodeConnection(CommNode a, CommNode b)
@@ -204,11 +199,7 @@ namespace RealAntennas
         protected override void UpdateNetwork()
         {
             //base.UpdateNetwork();
-            // The job results refer to nodes by index, so they must not be applied to a changed node list.
-            if (NodeListChanged)
-                precompute.Abort();
-            else
-                precompute.Complete(this);
+            precompute.Complete(this);
         }
 
         public void DoDisconnect(CommNode a, CommNode b) => Disconnect(a, b, true);

@@ -62,11 +62,7 @@ namespace RealAntennas.Network
         {
             Debug.Log($"{ModTag} ResetNetwork()");
 
-            if (CommNet is RACommNetwork oldNet)
-            {
-                oldNet.Abort();
-                oldNet.precompute.Destroy();
-            }
+            (CommNet as RACommNetwork)?.Destroy();
             CommNet = new RACommNetwork();
             Debug.Log($"{ModTag} Firing onNetworkInitialized()");
             GameEvents.CommNet.OnNetworkInitialized.Fire();
@@ -119,7 +115,7 @@ namespace RealAntennas.Network
             GameEvents.onVesselCreate.Remove(VesselCreateHandler);
             GameEvents.onVesselDestroy.Remove(VesselDestroyHandler);
             TimingManager.UpdateRemove(TimingManager.TimingStage.ObscenelyEarly, UpdateEarly);
-            (CommNet as RACommNetwork).precompute.Destroy();
+            (CommNet as RACommNetwork)?.Destroy();
         }
     }
 }

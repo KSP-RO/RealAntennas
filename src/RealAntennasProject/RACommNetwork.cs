@@ -196,6 +196,13 @@ namespace RealAntennas
             precompute.Abort();
         }
 
+        // Waits for any running jobs and frees all native memory. The network can't be used after this.
+        public void Destroy()
+        {
+            calculating = false;
+            precompute.Destroy();
+        }
+
         protected override void UpdateNetwork()
         {
             //base.UpdateNetwork();

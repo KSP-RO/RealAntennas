@@ -32,6 +32,7 @@ namespace RealAntennas
 
         private Vector2 primaryScroller, fixedScroller;
         private Network.ConnectionDebugger connectionDebugger;
+        private readonly Precompute.Precompute precompute = new Precompute.Precompute();
 
         enum SelectionMode { Vessel, GroundStation };
         private SelectionMode primarySelectionMode = SelectionMode.Vessel;
@@ -82,6 +83,7 @@ namespace RealAntennas
             primaryFarGO.DestroyGameObject();
             ReleaseAntennaCopyTargets();
             ReleaseProtoVesselAntennaTargets(protoVesselAntennaCache);
+            precompute.Destroy();
             parentPartModule.plannerGUI = null;
             GameEvents.onEditorPodDeleted.Remove(OnEditorRestart);
             GameEvents.onEditorRestart.Remove(OnEditorRestart);
@@ -409,7 +411,6 @@ namespace RealAntennas
                 peerAntennaCopy.Target = Targeting.AntennaTarget.LoadFromConfig(x, peerAntennaCopy);
             }
 
-            var precompute = new Precompute.Precompute();
             var home = Planetarium.fetch.Home;
             var defaultPos = home.GetWorldSurfacePosition(0, 0, 100);
             var defaultOffset = home.GetWorldSurfacePosition(0, 0, 1e6);

@@ -153,7 +153,7 @@ namespace RealAntennas.Precompute
             if (tempAllocationsActive)
             {
                 UnityEngine.Debug.LogError($"[RealAntennas.Precompute] Jobs were already allocated!\n{new System.Diagnostics.StackTrace()}");
-                DisposeJobData();
+                Abort();
             }
             nodes ??= RACommNetScenario.RACN.Nodes;
             bodies ??= FlightGlobals.Bodies;

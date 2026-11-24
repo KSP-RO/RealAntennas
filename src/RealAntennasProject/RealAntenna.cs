@@ -43,7 +43,7 @@ namespace RealAntennas
         // once. This is typically used for ground stations.
         public bool IsTracking => Shape != AntennaShape.Omni && Target == null;
         public virtual bool CanTarget => Shape != AntennaShape.Omni && !IsTracking;
-        public Vector3 ToTarget => (CanTarget && Target != null) ? (Vector3) (Target.Position - Position) : Vector3.zero;
+        public Vector3 ToTarget => (CanTarget && Target != null) ? (Vector3) (Target.transform.position - Position) : Vector3.zero;
 
         // In the absence of a TARGET config node, antennas will target the centre of the home body.
         // However, if the antenna belongs to a node with a ParentBody, Target will be set to null.

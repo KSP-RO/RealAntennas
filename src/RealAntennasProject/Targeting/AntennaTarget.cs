@@ -13,6 +13,8 @@ namespace RealAntennas.Targeting
         public static AntennaTarget LoadFromConfig(ConfigNode node, RealAntenna ra)
         {
             var go = AntennaTargetManager.AcquireTarget(ra);
+            // The GameObject is reused across target modes, so drop any parent from a previous mode.
+            go.transform.SetParent(null);
             foreach (var del in go.GetComponents<AntennaTarget>())
                 Destroy(del);
             AntennaTarget t = null;
@@ -31,6 +33,8 @@ namespace RealAntennas.Targeting
             }
             return t;
         }
+        public virtual Vector3d Position => transform.position;
+
         public virtual void Awake()
         {
         }
@@ -84,6 +88,9 @@ namespace RealAntennas.Targeting
         public Vessel vessel;
         [Persistent] public string vesselId = string.Empty;
         public override string ToString() => $"{vessel?.name}";
+
+        public override Vector3d Position => vessel != null ? (Vector3d)vessel.transform.position : (Vector3d)transform.position;
+
         public override void Load(ConfigNode node)
         {
             base.Load(node);
@@ -91,10 +98,19 @@ namespace RealAntennas.Targeting
             if (FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel v)
             {
                 vessel = v;
-                transform.SetParent(vessel.transform);
-                transform.localPosition = Vector3.zero;
-                transform.localRotation = Quaternion.identity;
+                transform.position = vessel.transform.position;
+                transform.rotation = Quaternion.identity;
             }
+        }
+
+        public override void FixedUpdate()
+        {
+            base.FixedUpdate();
+            // We avoid parenting the target to a vessel and instead update the position directly.
+            // Parenting would destroy this target together with the vessel.
+            // Once the vessel is gone, the target stays at its last known position.
+            if (vessel != null)
+                transform.position = vessel.transform.position;
         }
 
         public override void Save(ConfigNode node)
@@ -105,7 +121,7 @@ namespace RealAntennas.Targeting
             var res = ConfigNode.CreateConfigFromObject(this, tgtNode);
         }
 
-        public override bool Validate() => vessel is Vessel || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
+        public override bool Validate() => vessel != null || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
     }
 
     public class AntennaTargetAzEl : AntennaTarget
@@ -160,7 +176,7 @@ namespace RealAntennas.Targeting
             return dir;
         }
 
-        public override bool Validate() => vessel is Vessel || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
+        public override bool Validate() => vessel != null || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
     }
 
 
@@ -216,6 +232,6 @@ namespace RealAntennas.Targeting
             return dir;
         }
 
-        public override bool Validate() => vessel is Vessel || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
+        public override bool Validate() => vessel != null || FlightGlobals.FindVessel(new Guid(vesselId)) is Vessel;
     }
 }

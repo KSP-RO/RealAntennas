@@ -275,7 +275,8 @@ namespace RealAntennas
 
         private void ValidateAntennaTarget(RealAntenna ra)
         {
-            if (ra.CanTarget && ra.Target?.Validate() != true)
+            bool isTargetDestroyed = ra.Target is object && ra.Target == null;
+            if (isTargetDestroyed || (ra.CanTarget && ra.Target?.Validate() != true))
                 ra.SetDefaultTarget();
         }
         public static bool DeployedUnloaded(ProtoPartSnapshot part)

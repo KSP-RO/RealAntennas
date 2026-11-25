@@ -151,6 +151,7 @@ namespace RealAntennas
             base.OnStart(state);
             SetupBaseFields();
             Fields[nameof(_enabled)].uiControlEditor.onFieldChanged = OnAntennaEnableChange;
+            Fields[nameof(_enabled)].uiControlEditor.onSymmetryFieldChanged = OnAntennaEnableChange;
             (Fields[nameof(TxPower)].uiControlEditor as UI_FloatRange).maxValue = MaxTxPower;
 
             _enabled = Condition != AntennaCondition.Disabled;
@@ -279,10 +280,13 @@ namespace RealAntennas
         private void SetupUICallbacks()
         {
             Fields[nameof(TechLevel)].uiControlEditor.onFieldChanged = OnTechLevelChange;
-            Fields[nameof(TechLevel)].uiControlEditor.onSymmetryFieldChanged = OnTechLevelChangeSymmetry;
+            Fields[nameof(TechLevel)].uiControlEditor.onSymmetryFieldChanged = OnTechLevelChange;
             Fields[nameof(RFBand)].uiControlEditor.onFieldChanged = OnRFBandChange;
+            Fields[nameof(RFBand)].uiControlEditor.onSymmetryFieldChanged = OnRFBandChange;
             Fields[nameof(TxPower)].uiControlEditor.onFieldChanged = OnTxPowerChange;
+            Fields[nameof(TxPower)].uiControlEditor.onSymmetryFieldChanged = OnTxPowerChange;
             Fields[nameof(plannerActiveTxTime)].uiControlEditor.onFieldChanged += OnPlannerActiveTxTimeChanged;
+            Fields[nameof(plannerActiveTxTime)].uiControlEditor.onSymmetryFieldChanged += OnPlannerActiveTxTimeChanged;
         }
 
         private void UpdateMaxTechLevelInUI()
@@ -304,7 +308,7 @@ namespace RealAntennas
         }
         private void OnRFBandChange(BaseField f, object obj) => RecalculateFields();
         private void OnTxPowerChange(BaseField f, object obj) => RecalculateFields();
-        private void OnTechLevelChange(BaseField f, object obj)     // obj is the OLD value
+        private void OnTechLevelChange(BaseField f, object obj)
         {
             ApplyTLColoring();
             string oldBand = RFBand;
@@ -312,8 +316,6 @@ namespace RealAntennas
             RecalculateFields();
             if (!oldBand.Equals(RFBand)) MonoUtilities.RefreshPartContextWindow(part);
         }
-
-        private void OnTechLevelChangeSymmetry(BaseField f, object obj) => ConfigBandOptions();
 
         [KSPEvent(guiActive = true, guiActiveEditor = false, guiName = "Disable antenna permanently", groupName = PAWGroup)]
         public void PermanentShutdownEvent()

@@ -13,6 +13,8 @@ namespace RealAntennas.Targeting
         public static AntennaTarget LoadFromConfig(ConfigNode node, RealAntenna ra)
         {
             var go = AntennaTargetManager.AcquireTarget(ra);
+            // The GameObject is reused across target modes, so drop any parent from a previous mode.
+            go.transform.SetParent(null);
             foreach (var del in go.GetComponents<AntennaTarget>())
                 Destroy(del);
             AntennaTarget t = null;
@@ -27,10 +29,17 @@ namespace RealAntennas.Targeting
                     t = go.AddComponent<AntennaTargetAzEl>();
                 else if (n.Equals(TargetMode.OrbitRelative.ToString()))
                     t = go.AddComponent<AntennaTargetOrbitRelative>();
-                t?.Load(node);
+                if (t != null)
+                {
+                    t.antenna = ra;
+                    t.Load(node);
+                }
             }
             return t;
         }
+
+        public RealAntenna antenna;
+
         public virtual void Awake()
         {
         }
@@ -84,6 +93,24 @@ namespace RealAntennas.Targeting
         public Vessel vessel;
         [Persistent] public string vesselId = string.Empty;
         public override string ToString() => $"{vessel?.name}";
+
+        public override void Awake()
+        {
+            base.Awake();
+            GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
+            GameEvents.onVesselRecovered.Add(OnVesselRecovered);
+            GameEvents.onVesselTerminated.Add(OnVesselTerminated);
+            GameEvents.onPartCouple.Add(OnPartCouple);
+        }
+
+        public void OnDestroy()
+        {
+            GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
+            GameEvents.onVesselRecovered.Remove(OnVesselRecovered);
+            GameEvents.onVesselTerminated.Remove(OnVesselTerminated);
+            GameEvents.onPartCouple.Remove(OnPartCouple);
+        }
+
         public override void Load(ConfigNode node)
         {
             base.Load(node);
@@ -96,6 +123,33 @@ namespace RealAntennas.Targeting
                 transform.localRotation = Quaternion.identity;
             }
         }
+
+        // This target is parented to the vessel and would be destroyed together with it.
+        // These events fire before the vessel is destroyed, so the antenna can be retargeted in time.
+        private void OnVesselWillDestroy(Vessel v) => ResetIfTargeting(v);
+        private void OnVesselRecovered(ProtoVessel pv, bool quick) => ResetIfTargeting(pv.vesselRef);
+        private void OnVesselTerminated(ProtoVessel pv) => ResetIfTargeting(pv.vesselRef);
+
+        private void ResetIfTargeting(Vessel v)
+        {
+            if (IsActiveTargetOf(v))
+                antenna.SetDefaultTarget();
+        }
+
+        // Docking destroys the Vessel of the docking part without calling Die().
+        // Its parts join the target part's vessel, so follow that vessel instead.
+        private void OnPartCouple(GameEvents.FromToAction<Part, Part> action)
+        {
+            if (!IsActiveTargetOf(action.from.vessel)) return;
+
+            var node = new ConfigNode(nodeName);
+            node.AddValue("name", $"{TargetMode.Vessel}");
+            node.AddValue("vesselId", action.to.vessel.id.ToString());
+            antenna.Target = LoadFromConfig(node, antenna);
+        }
+
+        // A replaced target stays subscribed until Unity destroys it at the end of the frame.
+        private bool IsActiveTargetOf(Vessel v) => v == vessel && antenna.Target == this;
 
         public override void Save(ConfigNode node)
         {

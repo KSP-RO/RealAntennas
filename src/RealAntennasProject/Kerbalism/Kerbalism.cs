@@ -6,14 +6,31 @@ namespace RealAntennas.Kerbalism
 {
     public class Kerbalism
     {
-        public static readonly string ModTag = "[RAKerbalismLink] ";
+        public const string ModTag = "[RAKerbalismLink] ";
+        private static bool detectionDone = false;
         public static Assembly KerbalismAssembly = null;
+        private static FieldInfo fPowered, fTransmitting, fLinked, fEc, fRate, fStatus, fStrength, fTargetName, fControlPath, fEcIdle;
+
+        private static void CacheFields(Type t)
+        {
+            fPowered = t.GetField("powered");
+            fTransmitting = t.GetField("transmitting");
+            fLinked = t.GetField("linked");
+            fEc = t.GetField("ec");
+            fRate = t.GetField("rate");
+            fStatus = t.GetField("status");
+            fStrength = t.GetField("strength");
+            fTargetName = t.GetField("target_name");
+            fControlPath = t.GetField("control_path");
+            fEcIdle = t.GetField("ec_idle");
+        }
+
         public static void RAKerbalismLinkHandler(object p1, Vessel v)
         {
             if (CommNet.CommNetScenario.CommNetEnabled && v.Connection is RACommNetVessel raCNV && raCNV.Comm is RACommNode node)
             {
-                bool powered = (bool)p1.GetType().GetField("powered").GetValue(p1);
-                bool transmitting = (bool)p1.GetType().GetField("transmitting").GetValue(p1);
+                bool powered = (bool)fPowered.GetValue(p1);
+                bool transmitting = (bool)fTransmitting.GetValue(p1);
                 double ecIdle = powered ? raCNV.IdlePowerDraw() : 0;
                 double ec = ecIdle, rate = 0, strength = 0, packetInterval = 1.0f;
                 int status = 2;
@@ -39,20 +56,24 @@ namespace RealAntennas.Kerbalism
                     target_name = path.First.end.displayName;
                 }
 
-                p1.GetType().GetField("linked").SetValue(p1, raCNV.IsConnectedHome); // Link Status
-                p1.GetType().GetField("ec").SetValue(p1, ec);               // EC/s
-                p1.GetType().GetField("rate").SetValue(p1, rate);           // Rate in MB/s
-                p1.GetType().GetField("status").SetValue(p1, status);       // 0=direct, 1=indirect, 2=none
-                p1.GetType().GetField("strength").SetValue(p1, strength);   // Signal quality indicator (float 0..1)
-                p1.GetType().GetField("target_name").SetValue(p1, target_name);
-                p1.GetType().GetField("control_path").SetValue(p1, sList);
-                p1.GetType().GetField("ec_idle")?.SetValue(p1, ecIdle);
+                fLinked.SetValue(p1, raCNV.IsConnectedHome);    // Link Status
+                fEc.SetValue(p1, ec);                           // EC/s
+                fRate.SetValue(p1, rate);                       // Rate in MB/s
+                fStatus.SetValue(p1, status);                   // 0=direct, 1=indirect, 2=none
+                fStrength.SetValue(p1, strength);               // Signal quality indicator (float 0..1)
+                fTargetName.SetValue(p1, target_name);
+                fControlPath.SetValue(p1, sList);
+                fEcIdle?.SetValue(p1, ecIdle);
 
                 //Debug.LogFormat($"{ModTag}Rate: {RATools.PrettyPrintDataRate(rate * 8 * 1024 * 1024)} EC: {ec:F4}  Linked:{raCNV.IsConnectedHome}  Strength: {strength:F2}  Target: {target_name}");
             }
         }
+
         public static bool DetectKerbalismDLL()
         {
+            if (detectionDone) return KerbalismAssembly != null;
+            detectionDone = true;
+
             foreach (var a in AssemblyLoader.loadedAssemblies)
             {
                 if (a.name.StartsWith("Kerbalism") && 
@@ -61,12 +82,13 @@ namespace RealAntennas.Kerbalism
                     )
                 {
                     KerbalismAssembly = a.assembly;
-                    MethodInfo baseMethod = typeof(Kerbalism).GetMethod(nameof(RAKerbalismLinkHandler));
-                    var x = baseMethod;
-                    var fInf = KerbalismAPIType.GetField("Comm", BindingFlags.Public | BindingFlags.Static);
-                    var val = fInf.GetValue(null);
-                    var mInf = val.GetType().GetMethod("Add", BindingFlags.Instance | BindingFlags.Public);
-                    mInf.Invoke(val, new object[1] { x });
+                    CacheFields(a.assembly.GetType("KERBALISM.ConnectionInfo", true));
+
+                    // Kerbalism's API takes a MethodInfo and calls it via MethodInfo.Invoke
+                    MethodInfo handler = typeof(Kerbalism).GetMethod(nameof(RAKerbalismLinkHandler));
+                    object commInfo = KerbalismAPIType.GetField("Comm", BindingFlags.Public | BindingFlags.Static).GetValue(null);
+                    MethodInfo addMethod = commInfo.GetType().GetMethod("Add", BindingFlags.Instance | BindingFlags.Public);
+                    addMethod.Invoke(commInfo, new object[] { handler });
                     return true;
                 }
             }

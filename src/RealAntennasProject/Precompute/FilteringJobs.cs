@@ -67,48 +67,23 @@ namespace RealAntennas.Precompute
         }
     }
 
+    // valid is indexed by x * nodeCount + y, matching the layout of the node pair list.
     [BurstCompile]
     public struct FilterAntennaPairsJob : IJob
     {
-        [ReadOnly] public NativeHashMap<int2, bool> valid;
+        [ReadOnly] public NativeArray<bool> valid;
         [ReadOnly] public NativeArray<int4> allPairs;
+        public int nodeCount;
         [WriteOnly] public NativeList<int4> validPairs;
 
         public void Execute()
         {
             for (int i = 0; i < allPairs.Length; i++)
             {
-                if (valid.TryGetValue(allPairs[i].xy, out bool v) && v)
-                    validPairs.Add(allPairs[i]);
+                int4 p = allPairs[i];
+                if (valid[p.x * nodeCount + p.y])
+                    validPairs.Add(p);
             }
-        }
-    }
-
-    // Parallel writing version ends up much slower due to use of TryAdd
-    [BurstCompile]
-    public struct CreateValidPairMapJob : IJob
-    {
-        [ReadOnly] public NativeArray<int2> pairs;
-        [ReadOnly] public NativeArray<bool> valid;
-        [WriteOnly] public NativeHashMap<int2, bool> output;
-
-        public void Execute()
-        {
-            for (int i = 0; i < pairs.Length; i++)
-                output[pairs[i]] = valid[i];
-        }
-    }
-
-    [BurstCompile]
-    public struct MapCommNodesToCalcRowsJob : IJob
-    {
-        [ReadOnly] public NativeArray<int4> pairs;
-        [WriteOnly] public NativeMultiHashMap<int2, int> connections;
-
-        public void Execute()
-        {
-            for (int index = 0; index < pairs.Length; index++)
-                connections.Add(pairs[index].xy, index);
         }
     }
 }

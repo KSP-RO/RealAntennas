@@ -30,14 +30,80 @@ namespace RealAntennas.MapUI
         private readonly List<CommLink> _scratchLinkList = new List<CommLink>();
         private readonly Cone cone3 = new Cone();
         private readonly Cone cone10 = new Cone();
-        private readonly Dictionary<CommLink, GameObject> linkRenderers = new Dictionary<CommLink, GameObject>();
-        private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> targetRenderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
-        private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone3Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
-        private readonly Dictionary<CommNode, Dictionary<RealAntenna, GameObject>> cone10Renderers = new Dictionary<CommNode, Dictionary<RealAntenna, GameObject>>();
+        private RendererPool solidLinkPool;
+        private RendererPool dottedLinkPool;
+        private RendererPool conePool;
+
+        // Renderers are handed out in draw order every frame and returned all at once at the start of the next one.
+        // The pool only grows to the most lines drawn in a single frame and is destroyed with this component.
+        private sealed class RendererPool
+        {
+            private readonly List<LineRenderer> renderers = new List<LineRenderer>();
+            private readonly Func<LineRenderer> create;
+            private int used;
+
+            public RendererPool(Func<LineRenderer> create) => this.create = create;
+
+            public LineRenderer Get()
+            {
+                if (used == renderers.Count)
+                    renderers.Add(create());
+                else if (renderers[used] == null)
+                    renderers[used] = create();
+                return renderers[used++];
+            }
+
+            public void ReturnAll()
+            {
+                for (int i = 0; i < used; i++)
+                {
+                    if (renderers[i] != null)
+                        renderers[i].enabled = false;
+                }
+                used = 0;
+            }
+
+            public void GatherEnabled(List<GameObject> res)
+            {
+                for (int i = 0; i < used; i++)
+                {
+                    if (renderers[i] != null && renderers[i].enabled)
+                        res.Add(renderers[i].gameObject);
+                }
+            }
+
+            public void SetLayer(int layer)
+            {
+                foreach (LineRenderer rend in renderers)
+                {
+                    if (rend != null)
+                        rend.gameObject.layer = layer;
+                }
+            }
+
+            public void DestroyAll()
+            {
+                foreach (LineRenderer rend in renderers)
+                {
+                    if (rend != null)
+                        Destroy(rend.gameObject);
+                }
+                renderers.Clear();
+                used = 0;
+            }
+        }
 
 
         public enum DrawConesMode { None, Cone2D, Cone3D };
         public enum RadioPerspective { Transmit, Receive };
+
+        protected override void Awake()
+        {
+            base.Awake();
+            solidLinkPool = new RendererPool(() => CreateRenderer("LinkLineRenderer"));
+            dottedLinkPool = new RendererPool(() => CreateRenderer("LinkLineRenderer", dotted: true));
+            conePool = new RendererPool(() => CreateRenderer("ConeLineRenderer"));
+        }
 
         protected override void Start()
         {
@@ -79,18 +145,9 @@ namespace RealAntennas.MapUI
             var settings = RACommNetScenario.MapUISettings;
             foreach (RACommLink link in linkList)
             {
-                GameObject go;
-                if (!linkRenderers.ContainsKey(link))
-                {
-                    go = new GameObject("LinkLineRenderer");
-                    LineRenderer rend = go.AddComponent<LineRenderer>();
-                    bool dotted = link.FwdAntennaTx.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
-                                  link.FwdAntennaRx.TechLevelInfo.Level < RACommNetScenario.minRelayTL;
-                    InitializeRenderer(rend, dotted);
-                    linkRenderers.Add(link, go);
-                }
-                go = linkRenderers[link];
-                LineRenderer renderer = go.GetComponent<LineRenderer>();
+                bool dotted = link.FwdAntennaTx.TechLevelInfo.Level < RACommNetScenario.minRelayTL ||
+                              link.FwdAntennaRx.TechLevelInfo.Level < RACommNetScenario.minRelayTL;
+                LineRenderer renderer = dotted ? dottedLinkPool.Get() : solidLinkPool.Get();
                 renderer.enabled = true;
                 Vector3d scaledStart = ScaledSpace.LocalToScaledSpace(link.start.precisePosition);
                 Vector3d scaledEnd = ScaledSpace.LocalToScaledSpace(link.end.precisePosition);
@@ -119,18 +176,14 @@ namespace RealAntennas.MapUI
         {
             if (node == null || node.RAAntennaList.Count == 0) return;
             var settings = RACommNetScenario.MapUISettings;
-            CheckRenderers(node);
 
             foreach (RealAntenna ra in node.RAAntennaList)
             {
                 if (ra.CanTarget && ra.Target != null)
                 {
-                    CheckRenderer(targetRenderers[node], ra);
-                    CheckRenderer(cone3Renderers[node], ra);
-                    CheckRenderer(cone10Renderers[node], ra);
-                    LineRenderer targetRenderer = targetRenderers[node][ra].GetComponent<LineRenderer>();
-                    LineRenderer cone3Renderer = cone3Renderers[node][ra].GetComponent<LineRenderer>();
-                    LineRenderer cone10Renderer = cone10Renderers[node][ra].GetComponent<LineRenderer>();
+                    LineRenderer targetRenderer = conePool.Get();
+                    LineRenderer cone3Renderer = conePool.Get();
+                    LineRenderer cone10Renderer = conePool.Get();
 
                     Vector3d axis = ra.ToTarget;
                     double len = Math.Min(1e8f, axis.magnitude);
@@ -278,8 +331,7 @@ namespace RealAntennas.MapUI
         {
             //base.UpdateDisplay();
             if (CommNetNetwork.Instance == null) return;
-            DisableAllLinkRenderers();
-            DisableAllConeRenderers();
+            ReturnAllRenderers();
             if (CommNetUI.Mode == CommNetUI.DisplayMode.None) return;
             var settings = RACommNetScenario.MapUISettings;
             if (this.draw3dLines != MapView.Draw3DLines)
@@ -306,13 +358,10 @@ namespace RealAntennas.MapUI
                 }
                 if (CommNetUI.Mode == CommNetUI.DisplayMode.Network)
                 {
+                    // Every link is in the Values of both its end nodes, so draw links from the network-wide list.
+                    GatherLinkLines(commNet.Links);
                     foreach (RACommNode node in commNet.Nodes)
-                    {
-                        _scratchLinkList.Clear();
-                        _scratchLinkList.AddRange(node.Values);
-                        GatherLinkLines(_scratchLinkList);
                         GatherAntennaCones(node);
-                    }
                 }
                 if (vessel?.Connection?.Comm is RACommNode commNode &&
                     vessel?.Connection?.ControlPath is CommPath commPath)
@@ -363,6 +412,13 @@ namespace RealAntennas.MapUI
             }
         }
 
+        private LineRenderer CreateRenderer(string name, bool dotted = false)
+        {
+            LineRenderer rend = new GameObject(name).AddComponent<LineRenderer>();
+            InitializeRenderer(rend, dotted);
+            return rend;
+        }
+
         private void InitializeRenderer(LineRenderer rend, bool dotted = false)
         {
             rend.material = dotted ? MapView.DottedLinesMaterial : lineMaterial;
@@ -397,96 +453,46 @@ namespace RealAntennas.MapUI
 
         public override void Hide()
         {
-            DisableAllConeRenderers();
-            DisableAllLinkRenderers();
+            ReturnAllRenderers();
             base.Hide();
         }
 
-        #region Renderer List Maintenance Methods
-        private void CheckRenderers(CommNode node)
+        protected override void OnDestroy()
         {
-            if (!cone3Renderers.ContainsKey(node))
-                cone3Renderers.Add(node, new Dictionary<RealAntenna, GameObject>());
-            if (!cone10Renderers.ContainsKey(node))
-                cone10Renderers.Add(node, new Dictionary<RealAntenna, GameObject>());
-            if (!targetRenderers.ContainsKey(node))
-                targetRenderers.Add(node, new Dictionary<RealAntenna, GameObject>());
+            solidLinkPool.DestroyAll();
+            dottedLinkPool.DestroyAll();
+            conePool.DestroyAll();
+            base.OnDestroy();
         }
 
-        private void CheckRenderer(Dictionary<RealAntenna, GameObject> dict, RealAntenna ra)
+        #region Renderer Pool Methods
+        private void ReturnAllRenderers()
         {
-            if (!dict.ContainsKey(ra))
-            {
-                GameObject go = new GameObject("ConeLineRenderer");
-                LineRenderer rend = go.AddComponent<LineRenderer>();
-                InitializeRenderer(rend);
-                dict.Add(ra, go);
-            }
-        }
-
-        private void DisableAllLinkRenderers()
-        {
-            foreach (GameObject go in linkRenderers.Values)
-                DisableLineRenderer(go);
-        }
-
-        private void DisableAllConeRenderers()
-        {
-            foreach (Dictionary<RealAntenna, GameObject> dict in targetRenderers.Values)
-                foreach (GameObject go in dict.Values)
-                    DisableLineRenderer(go);
-
-            foreach (Dictionary<RealAntenna, GameObject> dict in cone3Renderers.Values)
-                foreach (GameObject go in dict.Values)
-                    DisableLineRenderer(go);
-
-            foreach (Dictionary<RealAntenna, GameObject> dict in cone10Renderers.Values)
-                foreach (GameObject go in dict.Values)
-                    DisableLineRenderer(go);
-        }
-
-        private void DisableLineRenderer(GameObject go)
-        {
-            if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                rend.enabled = false;
-            else
-                Destroy(go);
+            solidLinkPool.ReturnAll();
+            dottedLinkPool.ReturnAll();
+            conePool.ReturnAll();
         }
 
         public void GatherAllLinkRenderers(List<GameObject> res)
         {
-            foreach (GameObject go in linkRenderers.Values)
-            {
-                if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                    if (rend.enabled)
-                        res.Add(go);
-            }
+            solidLinkPool.GatherEnabled(res);
+            dottedLinkPool.GatherEnabled(res);
         }
 
         private void ResetRendererLayer(bool mode3D)
         {
-            foreach (GameObject go in linkRenderers.Values)
-                if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                    ResetRendererLayer(rend, mode3D);
-            foreach (Dictionary<RealAntenna, GameObject> dict in targetRenderers.Values)
-                foreach (GameObject go in dict.Values)
-                    if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                        ResetRendererLayer(rend, mode3D);
-            foreach (Dictionary<RealAntenna, GameObject> dict in cone3Renderers.Values)
-                foreach (GameObject go in dict.Values)
-                    if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                        ResetRendererLayer(rend, mode3D);
-            foreach (Dictionary<RealAntenna, GameObject> dict in cone10Renderers.Values)
-                foreach (GameObject go in dict.Values)
-                    if (go.GetComponent<LineRenderer>() is LineRenderer rend)
-                        ResetRendererLayer(rend, mode3D);
+            int layer = RendererLayer(mode3D);
+            solidLinkPool.SetLayer(layer);
+            dottedLinkPool.SetLayer(layer);
+            conePool.SetLayer(layer);
         }
 
         private void ResetRendererLayer(LineRenderer rend, bool mode3D)
         {
-            //rend.material = mode3D ? MapView.DottedLinesMaterial : new Material(Shader.Find("Sprites/Default"));
-            rend.gameObject.layer = mode3D ? 31 : 10;
+            rend.gameObject.layer = RendererLayer(mode3D);
         }
+
+        private static int RendererLayer(bool mode3D) => mode3D ? 31 : 10;
 
         #endregion
     }

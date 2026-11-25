@@ -127,8 +127,8 @@ namespace RealAntennas.Targeting
         // This target is parented to the vessel and would be destroyed together with it.
         // These events fire before the vessel is destroyed, so the antenna can be retargeted in time.
         private void OnVesselWillDestroy(Vessel v) => ResetIfTargeting(v);
-        private void OnVesselRecovered(ProtoVessel pv, bool quick) => ResetIfTargeting(pv?.vesselRef);
-        private void OnVesselTerminated(ProtoVessel pv) => ResetIfTargeting(pv?.vesselRef);
+        private void OnVesselRecovered(ProtoVessel pv, bool quick) => ResetIfTargeting(pv.vesselRef);
+        private void OnVesselTerminated(ProtoVessel pv) => ResetIfTargeting(pv.vesselRef);
 
         private void ResetIfTargeting(Vessel v)
         {
@@ -140,18 +140,16 @@ namespace RealAntennas.Targeting
         // Its parts join the target part's vessel, so follow that vessel instead.
         private void OnPartCouple(GameEvents.FromToAction<Part, Part> action)
         {
-            Vessel from = action.from?.vessel;
-            Vessel to = action.to?.vessel;
-            if (to == null || from == to || !IsActiveTargetOf(from)) return;
+            if (!IsActiveTargetOf(action.from.vessel)) return;
 
             var node = new ConfigNode(nodeName);
             node.AddValue("name", $"{TargetMode.Vessel}");
-            node.AddValue("vesselId", to.id.ToString());
+            node.AddValue("vesselId", action.to.vessel.id.ToString());
             antenna.Target = LoadFromConfig(node, antenna);
         }
 
         // A replaced target stays subscribed until Unity destroys it at the end of the frame.
-        private bool IsActiveTargetOf(Vessel v) => v != null && v == vessel && antenna != null && antenna.Target == this;
+        private bool IsActiveTargetOf(Vessel v) => v == vessel && antenna.Target == this;
 
         public override void Save(ConfigNode node)
         {

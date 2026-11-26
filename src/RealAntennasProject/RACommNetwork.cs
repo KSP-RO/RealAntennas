@@ -177,10 +177,22 @@ namespace RealAntennas
                 Profiler.EndSample();
                 PrecomputeLateWatch.Stop();
                 LastUpdateUT = Planetarium.GetUniversalTime();
-                NetworkUpdateComplete.Fire();
-                PostUpdateNodes();
-                if (OnNetworkPostUpdate is Action)
-                    OnNetworkPostUpdate();
+                Profiler.BeginSample("RealAntennas CompleteRebuild.BuildHomeTree");
+                BuildHomeTree();
+                Profiler.EndSample();
+                // Links do not change until the next rebuild, so FindHome can use the tree during the post-update callbacks.
+                homeTreeActive = true;
+                try
+                {
+                    NetworkUpdateComplete.Fire();
+                    PostUpdateNodes();
+                    if (OnNetworkPostUpdate is Action)
+                        OnNetworkPostUpdate();
+                }
+                finally
+                {
+                    homeTreeActive = false;
+                }
                 tempWatch.Stop();
                 Profiler.EndSample();
                 (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("Precompute LateRebuild", PrecomputeLateWatch.Elapsed.TotalMilliseconds);
@@ -366,8 +378,96 @@ namespace RealAntennas
 
         // Stock FindHome passes IsHome as a method group, which creates a new delegate every call.
         // We override it to pass cached static delegates instead.
-        public override bool FindHome(CommNode from, CommPath path = null) =>
-            FindClosestWhere(from, path, isHomeFunc) != null;
+        public override bool FindHome(CommNode from, CommPath path = null)
+        {
+            if (homeTreeActive && from is RACommNode start && start.homeTreeId == homeTreeId)
+                return FindHomeFromTree(start, path);
+            return FindClosestWhere(from, path, isHomeFunc) != null;
+        }
+
+        private bool homeTreeActive;
+        private int homeTreeId;
+
+        // Runs Dijkstra once backwards from all homes, so every node gets its shortest route home.
+        // Gives the same costs as running FindClosestWhere(node, path, IsHome) for each node separately.
+        private void BuildHomeTree()
+        {
+            PathfindWatch.Reset();
+            PathfindWatch.Start();
+            int treeId = ++homeTreeId;
+            int visitId = ++pathfindSearchId;
+            PathHeapClear();
+            foreach (RACommNode n in Nodes)
+            {
+                n.homeTreeId = treeId;
+                n.homeLink = null;
+                n.homeNext = null;
+                if (n.isHome)
+                {
+                    n.homeCost = 0;
+                    PathHeapPush(n, 0);
+                }
+                else
+                    n.homeCost = double.PositiveInfinity;
+            }
+            int minRelayTL = RACommNetScenario.minRelayTL;
+            while (pathHeapCount > 0)
+            {
+                PathHeapEntry entry = PathHeapPop();
+                RACommNode v = entry.node;
+                if (v.pathfindVisitId == visitId || entry.cost > v.homeCost)
+                    continue;
+                v.pathfindVisitId = visitId;
+                double vCost = v.homeCost;
+                bool vIsHome = v.isHome;
+                foreach (KeyValuePair<CommNode, CommLink> kvp in v)
+                {
+                    if (kvp.Key is RACommNode u && u.pathfindVisitId != visitId && kvp.Value is RACommLink link)
+                    {
+                        // Signal goes from u to v. v must be able to relay unless it is the destination.
+                        bool fwd = link.start == u;
+                        if ((fwd ? link.FwdAntennaRx : link.RevAntennaRx) is RealAntenna rxAntenna
+                            && (vIsHome || rxAntenna.TechLevelInfo.Level >= minRelayTL))
+                        {
+                            double newCost = vCost + (fwd ? link.FwdCost : link.RevCost);
+                            if (u.homeCost > newCost)
+                            {
+                                u.homeCost = newCost;
+                                u.homeLink = link;
+                                u.homeNext = v;
+                                PathHeapPush(u, newCost);
+                            }
+                        }
+                    }
+                }
+            }
+            PathHeapClear();
+            PathfindWatch.Stop();
+            (RACommNetScenario.Instance as RACommNetScenario).metrics.AddMeasurement("HomeTree", PathfindWatch.Elapsed.TotalMilliseconds);
+        }
+
+        private bool FindHomeFromTree(RACommNode start, CommPath path)
+        {
+            path?.Clear();
+            if (double.IsPositiveInfinity(start.homeCost))
+                return false;
+            if (path != null)
+            {
+                RACommNode n = start;
+                while (n.homeNext != null)
+                {
+                    var link = new RACommLink();
+                    link.Copy(n.homeLink);
+                    // Path links point away from the start node.
+                    if (link.a == n.homeNext)
+                        link.SwapEnds();
+                    path.Add(link);
+                    n = n.homeNext;
+                }
+                path.UpdateFromPath();
+            }
+            return true;
+        }
 
         public override bool FindClosestControlSource(CommNode from, CommPath path = null) =>
             FindClosestWhere(from, path, isControlSourceFunc) != null;

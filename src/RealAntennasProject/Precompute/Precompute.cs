@@ -61,9 +61,11 @@ namespace RealAntennas.Precompute
         public readonly Dictionary<int, RealAntenna> allAntennasReverse = new Dictionary<int, RealAntenna>();
         public NativeArray<AntennaData> antennaDataList;
         public NativeList<int4> allAntennaPairs = new NativeList<int4>(Allocator.Persistent);
+        // Holds every ordered (x, y) node pair, including x == y. Pair (x, y) is at index x * nodeCount + y.
         public NativeList<int2> allNodePairs = new NativeList<int2>(Allocator.Persistent);
-        public NativeHashMap<int2, int> bestMap;
-        public NativeHashMap<int2, bool> validMap;
+        private int nodeCount;
+        // Best row in allValidAntennaPairs per node pair, indexed like allNodePairs. -1 if none.
+        private NativeArray<int> bestRows;
         private JobHandle precomputeJobHandle;
 
         // Job data, allocated at start of job scatter, de-allocated during gather method.
@@ -112,7 +114,6 @@ namespace RealAntennas.Precompute
         private NativeArray<float> minDataRate;
         private NativeArray<int> maxSteps;
         private NativeArray<int> rateSteps;
-        private NativeMultiHashMap<int2, int> nodeRowMap;
 
         public NativeList<CNInfo> allNodes;
         public NativeArray<OccluderInfo> occluders;
@@ -131,6 +132,7 @@ namespace RealAntennas.Precompute
         {
             if (antennaDataList.IsCreated) antennaDataList.Dispose();
             nodes ??= RACommNetScenario.RACN.Nodes;
+            nodeCount = nodes?.Count ?? 0;
             antennaDataList = GatherAllAntennas(allAntennas, allAntennasReverse, nodes);
             PairAllAntennasAndNodes(allAntennaPairs, allNodePairs, allAntennas, nodes);
         }
@@ -187,28 +189,14 @@ namespace RealAntennas.Precompute
                 validOut = occlusionValid,
             }.Schedule(allNodePairs.Length, 16, filter1);
 
-            validMap = new NativeHashMap<int2, bool>(allNodePairs.Length, Allocator.TempJob);
-            var validPairMapJobHandle = new CreateValidPairMapJob
-            {
-                pairs = allNodePairs,
-                valid = occlusionValid,
-                output = validMap
-            }.Schedule(filter3);
-
             allValidAntennaPairs = new NativeList<int4>(allAntennaPairs.Length, Allocator.TempJob);
             var allValidAntennaPairsHandle = new FilterAntennaPairsJob
             {
                 allPairs = allAntennaPairs,
-                valid = validMap,
+                valid = occlusionValid,
+                nodeCount = nodeCount,
                 validPairs = allValidAntennaPairs
-            }.Schedule(validPairMapJobHandle);
-
-            nodeRowMap = new NativeMultiHashMap<int2, int>(allAntennaPairs.Length, Allocator.TempJob);
-            var sortCalculations = new MapCommNodesToCalcRowsJob
-            {
-                pairs = allValidAntennaPairs.AsDeferredJobArray(),
-                connections = nodeRowMap,
-            }.Schedule(allValidAntennaPairsHandle);
+            }.Schedule(filter3);
 
             JobHandle.ScheduleBatchedJobs();
 
@@ -403,13 +391,14 @@ namespace RealAntennas.Precompute
                 numSteps = rateSteps
             }.Schedule(allValidAntennaPairs, 16, selectBitRateJob);
 
-            bestMap = new NativeHashMap<int2, int>(allNodePairs.Capacity, Allocator.TempJob);
+            bestRows = new NativeArray<int>(allNodePairs.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             var bestLinkJob = new GetBestLinkJob
             {
-                connections = nodeRowMap,
+                pairs = allValidAntennaPairs.AsDeferredJobArray(),
                 dataRate = dataRate,
-                best = bestMap,
-            }.Schedule(JobHandle.CombineDependencies(selectBitRateJob, sortCalculations));
+                nodeCount = nodeCount,
+                best = bestRows,
+            }.Schedule(selectBitRateJob);
 
             precomputeJobHandle = JobHandle.CombineDependencies(bestLinkJob, rateStepsJob);
 
@@ -451,17 +440,16 @@ namespace RealAntennas.Precompute
 
             Profiler.BeginSample("RealAntennas PreCompute.Complete.Linkages.PairLoop");
             List<CommNet.CommNode> nodes = RACN.Nodes;
-            int nodeCount = nodes.Count;
             // Each unordered pair of distinct nodes is visited once.
             // Self-pairs and the mirrored half are never visited
             for (int x = 0; x < nodeCount; x++)
             {
                 for (int y = x + 1; y < nodeCount; y++)
                 {
-                    // bestMap only has entries for node pairs that passed the validity filters.
-                    if (bestMap.TryGetValue(new int2(x, y), out int row) &&
-                        bestMap.TryGetValue(new int2(y, x), out int row2) &&
-                        row >= 0 && row2 >= 0 &&
+                    // bestRows is -1 for node pairs that failed the validity filters or have no compatible antennas.
+                    int row = bestRows[x * nodeCount + y];
+                    int row2 = bestRows[y * nodeCount + x];
+                    if (row >= 0 && row2 >= 0 &&
                         dataRate[row] > 0 && dataRate[row2] > 0)
                     {
                         // Connect Successful
@@ -535,16 +523,13 @@ namespace RealAntennas.Precompute
             {
                 if (pair.x <= pair.y)
                 {
-                    var p2 = new int2(pair.y, pair.x);
-                    if (validMap.TryGetValue(pair, out bool valid) &&
-                        validMap.TryGetValue(p2, out bool valid2))
+                    bool valid = occlusionValid[pair.x * nodeCount + pair.y];
+                    bool valid2 = occlusionValid[pair.y * nodeCount + pair.x];
+                    RACommNode a = Nodes[pair.x] as RACommNode;
+                    RACommNode b = Nodes[pair.y] as RACommNode;
+                    if (a == debugAntenna.ParentNode || b == debugAntenna.ParentNode)
                     {
-                        RACommNode a = Nodes[pair.x] as RACommNode;
-                        RACommNode b = Nodes[pair.y] as RACommNode;
-                        if (a == debugAntenna.ParentNode || b == debugAntenna.ParentNode)
-                        {
-                            nodePairs.AppendLine($"Nodes: {a.name} -> {b.name} Valid: {valid} / {valid2}");
-                        }
+                        nodePairs.AppendLine($"Nodes: {a.name} -> {b.name} Valid: {valid} / {valid2}");
                     }
                 }
             }
@@ -627,8 +612,7 @@ namespace RealAntennas.Precompute
 
             allNodes.Dispose();
             occluders.Dispose();
-            validMap.Dispose();
-            bestMap.Dispose();
+            bestRows.Dispose();
             antennaNoise.Dispose();
             nodePairsValid.Dispose();
             occlusionValid.Dispose();
@@ -674,7 +658,6 @@ namespace RealAntennas.Precompute
             minDataRate.Dispose();
             maxSteps.Dispose();
             rateSteps.Dispose();
-            nodeRowMap.Dispose();
 
             tempAllocationsActive = false;
         }

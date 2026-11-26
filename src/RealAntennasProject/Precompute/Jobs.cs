@@ -330,34 +330,29 @@ namespace RealAntennas.Precompute
         }
     }
 
+    // For each directed node pair, find the row in pairs with the highest data rate.
+    // best is indexed by x * nodeCount + y and holds -1 for node pairs without any rows.
     [BurstCompile]
     public struct GetBestLinkJob : IJob
     {
-        [ReadOnly] public NativeMultiHashMap<int2, int> connections;
+        [ReadOnly] public NativeArray<int4> pairs;
         [ReadOnly] public NativeArray<float> dataRate;
-        [WriteOnly] public NativeHashMap<int2, int> best;
+        public int nodeCount;
+        public NativeArray<int> best;
+
         public void Execute()
         {
-            var keys = connections.GetKeyArray(Allocator.Temp);
-            for (int i=0; i<keys.Length; i++)
+            for (int i = 0; i < best.Length; i++)
+                best[i] = -1;
+
+            for (int i = 0; i < pairs.Length; i++)
             {
-                float bestRate = -1;
-                int bestIndex = -1;
-                int2 key = keys[i];
-                var iter = connections.GetValuesForKey(key);
-                while (iter.MoveNext())
-                {
-                    int index = iter.Current;
-                    float rate = dataRate[index];
-                    if (rate > bestRate)
-                    {
-                        bestRate = rate;
-                        bestIndex = index;
-                    }
-                }
-                best.TryAdd(key, bestIndex);
+                int4 p = pairs[i];
+                int key = p.x * nodeCount + p.y;
+                int cur = best[key];
+                if (cur < 0 || dataRate[i] > dataRate[cur])
+                    best[key] = i;
             }
-            keys.Dispose();
         }
     }
 }

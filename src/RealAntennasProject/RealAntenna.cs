@@ -96,9 +96,7 @@ namespace RealAntennas
             SymbolRate = orig.SymbolRate;
             AMWTemp = orig.AMWTemp;
             Target = orig.Target;
-            Parent = orig.Parent;
             ParentNode = orig.ParentNode;
-            ParentSnapshot = orig.ParentSnapshot;
             EncoderOverride = orig.EncoderOverride;
         }
 

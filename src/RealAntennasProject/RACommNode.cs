@@ -16,6 +16,13 @@ namespace RealAntennas
         // Used by RACommNetwork pathfinding to mark nodes whose shortest path is already final.
         internal int pathfindVisitId;
 
+        // Shortest route from this node to the nearest home, filled by RACommNetwork.BuildHomeTree.
+        // Only valid while homeTreeId matches the network's current tree id.
+        internal int homeTreeId;
+        internal double homeCost;
+        internal RACommLink homeLink;
+        internal RACommNode homeNext;
+
         public RACommNode() : base() { }
         public RACommNode(Transform t) : base(t)
         {

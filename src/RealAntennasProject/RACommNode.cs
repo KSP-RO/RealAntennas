@@ -13,6 +13,9 @@ namespace RealAntennas
         public bool isGroundStation => ParentBody != null;
         // Skopos stations have isHome set to false, hence the need for this check.
 
+        // Used by RACommNetwork pathfinding to mark nodes whose shortest path is already final.
+        internal int pathfindVisitId;
+
         public RACommNode() : base() { }
         public RACommNode(Transform t) : base(t)
         {

@@ -302,8 +302,63 @@ namespace RealAntennas
         }
         */
 
-        private readonly HashSet<RACommNode> sptSet = new HashSet<RACommNode>();
-        private readonly List<RACommNode> pathSortList = new List<RACommNode>();
+        private struct PathHeapEntry
+        {
+            public double cost;
+            public RACommNode node;
+        }
+
+        // Binary min-heap on cost. A node is pushed again each time its cost improves.
+        // Stale entries are skipped when popped.
+        private PathHeapEntry[] pathHeap = new PathHeapEntry[64];
+        private int pathHeapCount;
+
+        // A node is finalized in the current search when its pathfindVisitId equals this.
+        private int pathfindSearchId;
+
+        private void PathHeapPush(RACommNode node, double cost)
+        {
+            if (pathHeapCount == pathHeap.Length)
+                Array.Resize(ref pathHeap, pathHeap.Length * 2);
+            int i = pathHeapCount++;
+            while (i > 0)
+            {
+                int parent = (i - 1) >> 1;
+                if (pathHeap[parent].cost <= cost) break;
+                pathHeap[i] = pathHeap[parent];
+                i = parent;
+            }
+            pathHeap[i].cost = cost;
+            pathHeap[i].node = node;
+        }
+
+        private PathHeapEntry PathHeapPop()
+        {
+            PathHeapEntry top = pathHeap[0];
+            PathHeapEntry last = pathHeap[--pathHeapCount];
+            pathHeap[pathHeapCount].node = null;
+            int count = pathHeapCount;
+            int i = 0;
+            while (true)
+            {
+                int child = 2 * i + 1;
+                if (child >= count) break;
+                if (child + 1 < count && pathHeap[child + 1].cost < pathHeap[child].cost)
+                    child++;
+                if (last.cost <= pathHeap[child].cost) break;
+                pathHeap[i] = pathHeap[child];
+                i = child;
+            }
+            if (count > 0)
+                pathHeap[i] = last;
+            return top;
+        }
+
+        private void PathHeapClear()
+        {
+            Array.Clear(pathHeap, 0, pathHeapCount);
+            pathHeapCount = 0;
+        }
 
         // Cached so that each pathfinding call does not allocate a new delegate.
         private static readonly Func<CommNode, CommNode, bool> isHomeFunc = IsHome;
@@ -325,44 +380,52 @@ namespace RealAntennas
             PathfindWatch.Reset();
             PathfindWatch.Start();
             path?.Clear();
-            sptSet.Clear();
-            pathSortList.Clear();
+            int searchId = ++pathfindSearchId;
             foreach (RACommNode racn in Nodes)
             {
                 racn.bestCost = (racn == start) ? 0 : double.PositiveInfinity;
                 racn.bestLink = null;
                 racn.bestLinkNode = null;
             }
-            pathSortList.Add(start);
+            PathHeapClear();
+            PathHeapPush(start, 0);
+            int minRelayTL = RACommNetScenario.minRelayTL;
             bool found = false;
             RACommNode candidate = null;
-            while (!found && pathSortList.Count > 0)
+            while (!found && pathHeapCount > 0)
             {
-                pathSortList.Sort((x, y) => x.bestCost.CompareTo(y.bestCost));
-                candidate = pathSortList.First();
-                pathSortList.RemoveAt(0);
-                sptSet.Add(candidate);
+                PathHeapEntry entry = PathHeapPop();
+                RACommNode popped = entry.node;
+                if (popped.pathfindVisitId == searchId || entry.cost > popped.bestCost)
+                    continue;
+                candidate = popped;
+                candidate.pathfindVisitId = searchId;
                 if (!(found = where(start, candidate)))
                 {
+                    double candidateCost = candidate.bestCost;
                     foreach (KeyValuePair<CommNode, CommLink> kvp in candidate)
                     {
-                        if (kvp.Key is RACommNode node && kvp.Value is RACommLink link && !sptSet.Contains(node)
-                            && (link.start == candidate ? link.FwdAntennaRx : link.RevAntennaRx) is RealAntenna rxAntenna
-                            // Skip if the peer is unable to relay and is also not the destination
-                            && (rxAntenna.TechLevelInfo.Level >= RACommNetScenario.minRelayTL || where(start, node)))
+                        if (kvp.Key is RACommNode node && node.pathfindVisitId != searchId && kvp.Value is RACommLink link)
                         {
-                            double cost = link.start == candidate ? link.FwdCost : link.RevCost;
-                            if (node.bestCost > candidate.bestCost + cost)
+                            bool fwd = link.start == candidate;
+                            // Skip if the peer is unable to relay and is also not the destination
+                            if ((fwd ? link.FwdAntennaRx : link.RevAntennaRx) is RealAntenna rxAntenna
+                                && (rxAntenna.TechLevelInfo.Level >= minRelayTL || where(start, node)))
                             {
-                                node.bestCost = candidate.bestCost + cost;
-                                node.bestLink = link;
-                                node.bestLinkNode = candidate;
+                                double newCost = candidateCost + (fwd ? link.FwdCost : link.RevCost);
+                                if (node.bestCost > newCost)
+                                {
+                                    node.bestCost = newCost;
+                                    node.bestLink = link;
+                                    node.bestLinkNode = candidate;
+                                    PathHeapPush(node, newCost);
+                                }
                             }
-                            pathSortList.AddUnique(node);
                         }
                     }
                 }
             }
+            PathHeapClear();
             if (found)
             {
                 CommNode n = candidate;
